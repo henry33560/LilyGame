@@ -54,6 +54,7 @@ svg{display:block}
 .lv.done{background:#DFF3D8}
 .lv.next{background:#FFE9A8;animation:pulse 1.4s infinite}
 .lv.lock{opacity:.35}
+.lv.open{background:#F4EEE5}
 .lv .tick{position:absolute;right:6px;bottom:2px;font-size:18px;color:#4E9A52}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
 
@@ -482,11 +483,11 @@ function levels(id){
   session=null;hush();
   const g=GAMES[id],d=progress[id]||0;
   app.innerHTML=`<div class="topbar"><button class="iconbtn" id="back">🏠</button><div class="lvTitle">${g.title}</div><div style="width:58px"></div></div>
-  <div class="lvGrid">${Array.from({length:LEVELS},(_,i)=>{const L=i+1,st=L<=d?'done':L===d+1?'next':'lock';
+  <div class="lvGrid">${Array.from({length:LEVELS},(_,i)=>{const L=i+1,st=L<=d?'done':L===d+1?'next':(typeof vset!=='undefined'&&vset.unlockAll)?'open':'lock';
     return `<button class="lv ${st}" data-l="${L}">${L}${st==='done'?'<span class="tick">✓</span>':''}</button>`}).join('')}</div>`;
   $('#back').onclick=home;
   app.querySelectorAll('.lv').forEach(b=>b.onclick=()=>{const L=+b.dataset.l;
-    if(L>(progress[id]||0)+1){b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
+    if(L>(progress[id]||0)+1&&!(typeof vset!=='undefined'&&vset.unlockAll)){b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
     startLevel(id,L)});
 }
 function startLevel(id,L){
@@ -508,17 +509,20 @@ function roundDone(hostEl,line,quiet){
   else later(()=>g.round(session.L,session.round),quiet?700:1900);
 }
 function levelDone(){
-  const {id,L}=session;progress[id]=Math.max(progress[id]||0,L);saveProg();
+  const {id,L}=session;
+  const perfect=!session.miss&&L<LEVELS&&(typeof vset==='undefined'||vset.skipPerfect!==false);
+  const nextL=perfect?Math.min(LEVELS,L+3):L+1;
+  progress[id]=Math.max(progress[id]||0,perfect?nextL-1:L);saveProg();
   const g=GAMES[id],last=L>=LEVELS;sfx.win();
-  say(last?'You did it! All levels done! You are a star!':'Level done! Great job!');
+  say(last?'You did it! All levels done! You are a star!':perfect&&nextL>L+1?`Perfect! No mistakes! Let's jump to level ${nextL}!`:'Level done! Great job!');
   const hosts=g.host==='all'?ALL4:[g.host];
   const cols=['#FF9AA2','#FFD966','#B5E48C','#A0C4FF','#FFB347','#CDB4DB'];
   const conf=Array.from({length:44},()=>`<i style="left:${rand(0,100)}%;background:${pick(cols)};animation-delay:${(Math.random()*.8).toFixed(2)}s;animation-duration:${(2+Math.random()*1.6).toFixed(2)}s"></i>`).join('');
   const ov=document.createElement('div');ov.className='overlay';
   ov.innerHTML=`<div class="confetti">${conf}</div><div class="panel"><div class="party">${hosts.map(k=>`<div class="pa">${svgAnimal(k,{orange:k==='capy'})}</div>`).join('')}</div>
-  <h2>${last?'All done! ⭐':'Level '+L+' done!'}</h2><div class="row">${last?'':'<button class="big yes" id="nx">Next ▶</button>'}<button class="big" id="lvb">Levels</button></div></div>`;
+  <h2>${last?'All done! ⭐':perfect&&nextL>L+1?'Perfect! ⏩ Level '+nextL:'Level '+L+' done!'}</h2><div class="row">${last?'':'<button class="big yes" id="nx">Next ▶</button>'}<button class="big" id="lvb">Levels</button></div></div>`;
   app.appendChild(ov);
-  if(!last)$('#nx').onclick=()=>startLevel(id,L+1);
+  if(!last)$('#nx').onclick=()=>startLevel(id,nextL);
   $('#lvb').onclick=()=>levels(id);
 }
 
@@ -1779,7 +1783,7 @@ const ZHR=[
   ['Potatoes sink.','馬鈴薯會沉。'],['Grapes sink.','葡萄會沉。'],['Wax floats.','蠟會浮。'],
   ['Find the right shadow!','找出正確的影子！'],['Whose shadow is this?','這是誰的影子？'],['You found it!','找到了！'],['Look at the shape again!','再看看形狀！'],
   ['Look again! Count them.','再看一次！數數看。'],['Look again!','再看一次！'],['Same!','一樣多！'],[/(\d+) and (\d+)\./g,'$1 和 $2。'],
-  ['You did it! All levels done! You are a star!','你完成了！全部過關了！你是超級明星！'],['Level done! Great job!','過關了！做得好！'],["Today's Mix done! See you tomorrow!",'今日挑戰完成！明天見！'],
+  ['You did it! All levels done! You are a star!','你完成了！全部過關了！你是超級明星！'],['Level done! Great job!','過關了！做得好！'],[/Perfect! No mistakes! Let's jump to level (\d+)!/g,'太厲害了！全部答對！直接跳到第 $1 關！'],[/Perfect! ⏩ Level (\d+)/g,'全對！⏩ 第 $1 關'],["Today's Mix done! See you tomorrow!",'今日挑戰完成！明天見！'],
   ['You did it!','你完成了！'],['Great job!','做得好！'],['You got it!','答對了！'],['Super!','超棒！'],['Well done!','很好！'],['Wow!','哇！'],['Yes!','對！'],['Thank you!','謝謝你！'],
   ['Try again!','再試一次！'],['Hello! Seven and three make ten.','你好！七和三合起來是十。'],
   [/ and /g,' 和 '],[/^up$/,'上'],[/^down$/,'下'],[/^left$/,'左'],[/^right$/,'右'],
@@ -1841,7 +1845,7 @@ function saveStats(){try{localStorage.setItem('amp-stats',JSON.stringify(stats))
 const stat=g=>(stats[g]=stats[g]||{rounds:0,miss:0,log:[]});
 const curGame=()=>session?(session.sub||session.id):null;
 const _soft=sfx.soft;
-sfx.soft=function(){_soft();const g=curGame();if(!g)return;const s=stat(g);s.miss++;
+sfx.soft=function(){_soft();if(session)session.miss=(session.miss||0)+1;const g=curGame();if(!g)return;const s=stat(g);s.miss++;
   s.log.unshift({t:Date.now(),L:session.subL||session.L,q:(session.qtext||'').slice(0,160)});s.log=s.log.slice(0,20);saveStats()};
 const _roundDone=roundDone;
 roundDone=function(h,line,quiet){const g=curGame();if(g){stat(g).rounds++;saveStats()}return _roundDone(h,line,quiet)};
@@ -1910,7 +1914,7 @@ levels=function(id){_levels(id);zhDOM(app)};
 /* =====================================================================
    SETTINGS PAGE + BACKGROUND MUSIC
    ===================================================================== */
-vset=Object.assign({lang:'en',sfxVol:.7,musicVol:.3,musicOn:true,speechVol:1},vset);
+vset=Object.assign({lang:'en',sfxVol:.7,musicVol:.3,musicOn:true,speechVol:1,skipPerfect:true,unlockAll:false},vset);
 
 /* ---------- original music (8 tracks, synthesized) ---------- */
 const NOTEIDX={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
@@ -2014,6 +2018,11 @@ function settings(){
     <div class="srow"><span>音量</span><input type="range" min="0" max="100" value="${pct(vset.musicVol)}" id="muv"><b id="muvN">${pct(vset.musicVol)}</b></div>
     <div class="srow"><span>現在播放</span><b id="nowPlaying">${Music.playing&&Music.cur?Music.cur.name:'—'}</b><button class="segb" id="mnext">⏭ 換一首</button></div>
     <p class="sn">共 ${TRACKS.length} 首原創小曲，隨機輪流播放。念題目的時候，音樂會自動變小聲。</p></section>
+   <section><h3>🎯 難度與關卡</h3>
+    <div class="srow"><span>全對跳關</span><div class="seg"><button class="segb ${vset.skipPerfect?'on':''}" data-skip="1">開</button><button class="segb ${!vset.skipPerfect?'on':''}" data-skip="0">關</button></div></div>
+    <p class="sn">一關完全沒錯，就直接往後跳 3 關，避免一直玩太簡單的題目。</p>
+    <div class="srow"><span>關卡解鎖</span><div class="seg"><button class="segb ${!vset.unlockAll?'on':''}" data-unl="0">照順序</button><button class="segb ${vset.unlockAll?'on':''}" data-unl="1">全部打開</button></div></div>
+    <p class="sn">全部打開後，可以直接點任何一關開始玩，適合讓她從比較難的關卡開始。</p></section>
    <section><h3>🧾 其他</h3>
     <div class="seg"><button class="segb" id="rptb">📊 家長報表</button><button class="segb" id="rstb">重設遊戲進度</button></div></section>
   </div>`;
@@ -2030,6 +2039,8 @@ function settings(){
   app.querySelectorAll('[data-mus]').forEach(b=>b.onclick=()=>{vset.musicOn=b.dataset.mus==='1';saveVset();
     app.querySelectorAll('[data-mus]').forEach(x=>x.classList.toggle('on',x===b));if(vset.musicOn)Music.start();else Music.stop()});
   $('#mnext').onclick=()=>{if(!vset.musicOn){vset.musicOn=true;saveVset();app.querySelectorAll('[data-mus]').forEach(x=>x.classList.toggle('on',x.dataset.mus==='1'))}Music.next()};
+  app.querySelectorAll('[data-skip]').forEach(b=>b.onclick=()=>{vset.skipPerfect=b.dataset.skip==='1';saveVset();app.querySelectorAll('[data-skip]').forEach(x=>x.classList.toggle('on',x===b))});
+  app.querySelectorAll('[data-unl]').forEach(b=>b.onclick=()=>{vset.unlockAll=b.dataset.unl==='1';saveVset();app.querySelectorAll('[data-unl]').forEach(x=>x.classList.toggle('on',x===b))});
   $('#rptb').onclick=reportPanel;
   $('#rstb').onclick=()=>{if(confirm('確定要重設所有遊戲的過關進度嗎？（答題紀錄會保留）')){progress={};saveProg();settings()}};
 }
