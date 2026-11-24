@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Piano Star</title>
+<style>
+:root{--ink:#4a3b5c;--accent:#b46cf0;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;height:100%;overflow:hidden;font-family:"Avenir Next","Nunito","Trebuchet MS",system-ui,sans-serif;color:var(--ink);
+  background:linear-gradient(160deg,#fdeeff 0%,#eaf2ff 60%,#effff6 100%);user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+.screen.active{display:flex;}
+button{font-family:inherit;color:inherit;border:none;cursor:pointer;background:none;}
+.big-btn{font-size:clamp(22px,3.6vw,32px);font-weight:800;padding:16px 32px;border-radius:999px;background:#fff;
+  box-shadow:0 6px 0 rgba(120,80,170,.25),0 10px 24px rgba(120,80,170,.12);}
+.big-btn:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(120,80,170,.25);}
+.big-btn.primary{background:linear-gradient(135deg,#ff9ed2,#b98cff);color:#fff;}
+.topbar{display:flex;align-items:center;gap:12px;padding:12px 16px;flex:none;}
+.icon-btn{width:56px;height:56px;border-radius:50%;background:#fff;font-size:26px;box-shadow:0 4px 0 rgba(120,80,170,.2);flex:none;}
+.icon-btn:active{transform:translateY(3px);box-shadow:none;}
+.title{font-size:clamp(20px,3.4vw,30px);font-weight:800;flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+.home-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;padding:20px;}
+.logo{margin:0;font-size:clamp(44px,9vw,80px);font-weight:900;background:linear-gradient(90deg,#ff7eb6,#b46cf0,#62b4f7);
+  -webkit-background-clip:text;background-clip:text;color:transparent;text-align:center;}
+.home-animals{font-size:clamp(50px,10vw,90px);display:flex;gap:3vw;}
+.home-animals span{display:inline-block;animation:hop 1.6s ease-in-out infinite;}
+.home-animals span:nth-child(2){animation-delay:.2s}.home-animals span:nth-child(3){animation-delay:.4s}.home-animals span:nth-child(4){animation-delay:.6s}
+.home-keys{display:flex;gap:6px;}
+.home-keys i{width:clamp(26px,5vw,44px);height:clamp(60px,12vw,100px);border-radius:10px;display:block;}
+.home-btns{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;}
+.home-progress{font-size:20px;font-weight:700;opacity:.7;}
+
+/* map */
+.map{flex:1;overflow-y:auto;padding:4px 20px 80px;}
+.world{background:rgba(255,255,255,.6);border-radius:28px;padding:16px 18px 20px;margin-bottom:18px;}
+.world-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.world-head .wi{font-size:40px;}
+.world-head .wn{font-size:26px;font-weight:900;flex:1;}
+.world-head .wp{font-size:18px;font-weight:800;opacity:.7;}
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:14px;}
+.lv{position:relative;aspect-ratio:1;border-radius:50%;background:#fff;box-shadow:0 5px 0 rgba(120,80,170,.2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.lv:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(120,80,170,.2);}
+.lv .num{font-size:30px;font-weight:900;line-height:1;}
+.lv .ic{font-size:22px;line-height:1.2;}
+.lv.locked{background:#e9e4f0;box-shadow:none;opacity:.7;}
+.lv.locked .num{font-size:30px;}
+.lv.next{background:linear-gradient(135deg,#ffd1ea,#e2d1ff);box-shadow:0 0 0 5px var(--accent),0 5px 0 rgba(120,80,170,.2);animation:pulse 1.4s ease-in-out infinite;}
+.lv .stk{position:absolute;top:-6px;right:-4px;font-size:30px;transform:rotate(12deg);}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+
+/* play */
+.play-body{flex:1;display:flex;flex-direction:column;min-height:0;}
+.stage{flex:0 0 20%;position:relative;display:flex;align-items:flex-end;justify-content:center;gap:4vw;padding-bottom:6px;
+  background:radial-gradient(ellipse at 50% 100%,rgba(255,216,77,.35),transparent 70%);min-height:0;}
+.stage span{display:inline-block;font-size:clamp(40px,8vh,80px);}
+.progress{position:absolute;left:16px;right:16px;top:4px;height:12px;border-radius:6px;background:rgba(255,255,255,.75);overflow:hidden;}
+.progress div{height:100%;width:0;background:linear-gradient(90deg,#ff9ed2,#b98cff);border-radius:6px;}
+.lanes-wrap{flex:1;position:relative;min-height:0;}
+#lanes{position:absolute;inset:0;width:100%;height:100%;touch-action:none;}
+@media (orientation:landscape){
+  .play-body{flex-direction:row;}
+  .stage{flex:0 0 18%;flex-direction:column;align-items:center;justify-content:flex-end;gap:2vh;}
+  .stage span{font-size:clamp(36px,7vw,70px);}
+}
+.hop{animation:hop .4s ease;}
+@keyframes hop{0%{transform:none}45%{transform:translateY(-22px) scale(1.15)}100%{transform:none}}
+
+.finish{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(253,238,255,.82);z-index:5;}
+.finish.show{display:flex;}
+.finish canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+.finish-card{position:relative;background:#fff;border-radius:36px;padding:28px 36px;text-align:center;box-shadow:0 12px 40px rgba(120,80,170,.25);animation:pop .5s ease;max-width:92vw;}
+.finish-card h2{margin:0;font-size:clamp(32px,6vw,52px);}
+.finish-card p{margin:8px 0;font-size:22px;font-weight:700;}
+.finish-sticker{font-size:96px;line-height:1.1;margin-top:10px;animation:hop 1s ease infinite;}
+.finish-btns{display:flex;gap:14px;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+@keyframes pop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+/* ===== KidStats (家長專區) ===== */
+.ks-gear{display:none;position:fixed;right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));width:44px;height:44px;border-radius:50%;
+  background:rgba(255,255,255,.55);font-size:20px;opacity:.55;z-index:20;border:none;}
+.ks-overlay{position:fixed;inset:0;z-index:100;display:none;background:#f6f4fa;overflow-y:auto;color:#2f2a3a;
+  font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;-webkit-user-select:text;user-select:text;}
+.ks-overlay.show{display:block;}
+.ks-wrap{max-width:920px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 18px 40px;}
+.ks-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.ks-head h2{flex:1;margin:0;font-size:24px;}
+.ks-btn{border:none;border-radius:12px;padding:10px 16px;font-size:16px;font-weight:700;background:#fff;color:#2f2a3a;box-shadow:0 1px 3px rgba(0,0,0,.12);font-family:inherit;}
+.ks-btn.dark{background:#2f2a3a;color:#fff;}
+.ks-btn.warn{color:#c0392b;}
+.ks-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px;}
+.ks-card{background:#fff;border-radius:16px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.ks-card .k{font-size:14px;color:#7a7389;}
+.ks-card .v{font-size:26px;font-weight:800;margin-top:4px;}
+.ks-card .s{font-size:13px;color:#7a7389;margin-top:2px;}
+.ks-sec{background:#fff;border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.ks-sec h3{margin:0 0 12px;font-size:18px;}
+.ks-bars{display:flex;align-items:flex-end;gap:6px;height:170px;padding-top:18px;}
+.ks-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;}
+.ks-stack{width:70%;max-width:34px;display:flex;flex-direction:column-reverse;border-radius:6px 6px 0 0;overflow:hidden;}
+.ks-num{font-size:11px;color:#7a7389;margin-bottom:3px;white-space:nowrap;}
+.ks-day{font-size:11px;color:#7a7389;margin-top:5px;white-space:nowrap;}
+.ks-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;margin-top:10px;color:#5a5368;}
+.ks-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+.ks-table{width:100%;border-collapse:collapse;font-size:14px;}
+.ks-table th{text-align:left;color:#7a7389;font-weight:600;padding:8px 6px;border-bottom:1px solid #eee;white-space:nowrap;}
+.ks-table td{padding:8px 6px;border-bottom:1px solid #f3f1f6;}
+.ks-table td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.ks-scroll{overflow-x:auto;}
+.ks-note{font-size:13px;color:#7a7389;line-height:1.6;}
+.ks-empty{color:#9a93a8;font-size:14px;padding:6px 0;}
+/* gate */
+.ks-gate{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;}
+.ks-gate .q{font-size:34px;font-weight:800;}
+.ks-gate .ans{font-size:34px;font-weight:800;min-width:120px;text-align:center;border-bottom:3px solid #2f2a3a;min-height:46px;}
+.ks-pad{display:grid;grid-template-columns:repeat(3,72px);gap:10px;}
+.ks-pad button{height:64px;border-radius:16px;border:none;background:#fff;font-size:26px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.12);font-family:inherit;color:#2f2a3a;}
+
+body.home .ks-gear{display:block;}
+
+</style>
+</head>
+<body>
+
+<section id="home" class="screen active">
+  <div class="home-wrap">
+    <h1 class="logo">Piano Star 🎹</h1>
+    <div class="home-animals"><span>🐰</span><span>🐱</span><span>🐶</span><span>🐻</span></div>
+    <div class="home-keys" id="homeKeys"></div>
+    <div class="home-btns">
+      <button class="big-btn primary" data-go="map">🗺️ Levels</button>
+      <button class="big-btn" id="freeBtn">🎹 Free Play</button>
+    </div>
+    <div class="home-progress" id="homeProgress"></div>
+  </div>
+</section>
+
+<section id="map" class="screen">
+  <div class="topbar">
+    <button class="icon-btn" data-go="home">🏠</button>
+    <div class="title">Pick a Level</div>
+    <div style="width:56px"></div>
+  </div>
+  <div class="map" id="mapList"></div>
+</section>
+
+<section id="play" class="screen">
+  <div class="topbar">
+    <button class="icon-btn" id="backBtn">⬅️</button>
+    <div class="title" id="playTitle"></div>
+    <button class="icon-btn" id="restartBtn">🔄</button>
+  </div>
+  <div class="play-body">
+    <div class="stage" id="stage">
+      <div class="progress" id="progressWrap"><div id="progressBar"></div></div>
+      <span>🐰</span><span>🐱</span><span>🐶</span><span>🐻</span>
+    </div>
+    <div class="lanes-wrap" id="lanesWrap"><canvas id="lanes"></canvas></div>
+  </div>
+  <div class="finish" id="finish">
+    <canvas id="confetti"></canvas>
+    <div class="finish-card">
+      <h2>🎉 Great job! 🎉</h2>
+      <p id="finishText">You got a sticker!</p>
+      <div class="finish-sticker" id="finishSticker">🌟</div>
+      <div class="finish-btns">
+        <button class="big-btn" id="againBtn">🔄</button>
+        <button class="big-btn" data-go="map">🗺️</button>
+        <button class="big-btn primary" id="nextBtn">Next ➡️</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ===== KidStats：共用遊玩紀錄 + 家長專區 =====
+   所有遊戲共用 localStorage 鍵 kidgames_v1。放在同一個網站（例如同一個 GitHub Pages）時，
+   任何一個遊戲的家長專區都能看到全部遊戲的紀錄。 */
+const KidStats = (function(){
+  const KEY = 'kidgames_v1', IDLE = 60000, TICK = 5000;
+  const PALETTE = ['#b98cff','#ff8fc7','#62b4f7','#7bdb8a','#ffae5c','#5ed3c8'];
+  let gameId = null, sess = null, lastInput = Date.now(), level = null;
+
+  function load(){
+    try{ const d = JSON.parse(localStorage.getItem(KEY)); if(d && d.sessions) return Object.assign({levels:{}, games:{}}, d); }catch(e){}
+    return {sessions:[], levels:{}, games:{}};
+  }
+  function save(d){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+
+  function newSession(){
+    const d = load();
+    sess = {id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), game: gameId, start: Date.now(), end: Date.now(), active: 0};
+    d.sessions.push(sess);
+    if(d.sessions.length > 1000) d.sessions = d.sessions.slice(-1000);
+    save(d);
+  }
+  function tick(){
+    if(!sess || document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if(now - lastInput > IDLE) return;           // 超過 60 秒沒碰螢幕，不算遊玩時間
+    const d = load();
+    let s = d.sessions.find(x=>x.id === sess.id);
+    if(!s){ s = sess; d.sessions.push(s); }
+    s.active += TICK/1000; s.end = now; sess = s;
+    save(d);
+  }
+  function init(id, name){
+    gameId = id;
+    const d = load(); d.games[id] = {name: name || id}; save(d);
+    newSession();
+    ['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev, ()=>{ lastInput = Date.now(); }, {passive:true}));
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState === 'hidden'){ hiddenAt = Date.now(); }
+      else if(hiddenAt && Date.now() - hiddenAt > 5*60000){ newSession(); lastInput = Date.now(); }
+    });
+    window.addEventListener('pagehide', ()=>{ if(level) levelEnd({completed:false}); });
+    setInterval(tick, TICK);
+    const gear = document.createElement('button');
+    gear.className = 'ks-gear'; gear.textContent = '⚙️'; gear.setAttribute('aria-label','家長專區');
+    gear.addEventListener('click', openGate);
+    document.body.appendChild(gear);
+    const ov = document.createElement('div'); ov.className = 'ks-overlay'; ov.id = 'ksOverlay';
+    document.body.appendChild(ov);
+  }
+
+  function levelStart(id, label){ level = {id, label, t0: Date.now()}; }
+  function levelEnd(r){
+    if(!level) return;
+    r = r || {};
+    const secs = Math.min(1800, Math.round((Date.now() - level.t0)/1000));
+    const d = load();
+    const g = d.levels[gameId] || (d.levels[gameId] = {});
+    const L = g[level.id] || (g[level.id] = {label: level.label, plays:0, completes:0, time:0, hits:0, misses:0, first: Date.now(), last:0});
+    L.plays++; if(r.completed) L.completes++;
+    L.time += secs; L.hits += r.hits || 0; L.misses += r.misses || 0;
+    L.last = Date.now(); L.label = level.label;
+    save(d); level = null;
+  }
+
+  /* ---------- 家長專區 ---------- */
+  const $ov = () => document.getElementById('ksOverlay');
+  function close(){ $ov().classList.remove('show'); $ov().innerHTML = ''; }
+  function openGate(){
+    const a = 6 + Math.floor(Math.random()*4), b = 6 + Math.floor(Math.random()*4);
+    let typed = '';
+    const ov = $ov();
+    ov.innerHTML = `<div class="ks-gate">
+      <div style="font-size:18px;color:#7a7389">家長專區：請回答</div>
+      <div class="q">${a} × ${b} = ?</div><div class="ans" id="ksAns"></div>
+      <div class="ks-pad">${[1,2,3,4,5,6,7,8,9,'⌫',0,'OK'].map(k=>`<button data-k="${k}">${k}</button>`).join('')}</div>
+      <button class="ks-btn" data-close>返回遊戲</button></div>`;
+    ov.classList.add('show');
+    ov.onclick = e=>{
+      if(e.target.closest('[data-close]')) return close();
+      const k = e.target.closest('[data-k]'); if(!k) return;
+      const v = k.dataset.k;
+      if(v === '⌫') typed = typed.slice(0,-1);
+      else if(v === 'OK'){ if(+typed === a*b) return renderDashboard(); typed = ''; }
+      else if(typed.length < 3) typed += v;
+      document.getElementById('ksAns').textContent = typed;
+    };
+  }
+  function fmt(sec){
+    sec = Math.round(sec || 0);
+    if(sec < 60) return sec + ' 秒';
+    const m = Math.floor(sec/60);
+    if(m < 60) return m + ' 分';
+    return Math.floor(m/60) + ' 小時 ' + (m%60) + ' 分';
+  }
+  const pad = n => String(n).padStart(2,'0');
+  const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); };
+  const stamp = ts => { const d = new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function renderDashboard(){
+    const d = load(), now = Date.now();
+    const gameIds = Array.from(new Set([...Object.keys(d.games), ...d.sessions.map(s=>s.game)]));
+    const color = id => PALETTE[gameIds.indexOf(id) % PALETTE.length];
+    const gname = id => (d.games[id] && d.games[id].name) || id;
+    const sessions = d.sessions.filter(s=>s.active >= 5);
+    const today = dayKey(now);
+    const sod = new Date(); sod.setHours(0,0,0,0);
+    const weekStart = sod.getTime() - 6*86400000;
+    const sum = arr => arr.reduce((a,s)=>a + s.active, 0);
+    const todaySec = sum(sessions.filter(s=>dayKey(s.start) === today));
+    const weekSec = sum(sessions.filter(s=>s.start >= weekStart));
+    const allSec = sum(sessions);
+    const avg = sessions.length ? allSec / sessions.length : 0;
+    const playDays = new Set(sessions.filter(s=>s.start >= weekStart).map(s=>dayKey(s.start))).size;
+
+    // 近 14 天
+    const days = [];
+    for(let i=13;i>=0;i--){
+      const t = sod.getTime() - i*86400000, k = dayKey(t), byGame = {};
+      sessions.filter(s=>dayKey(s.start) === k).forEach(s=>{ byGame[s.game] = (byGame[s.game]||0) + s.active; });
+      days.push({k, label: (new Date(t).getMonth()+1) + '/' + new Date(t).getDate(), byGame, total: Object.values(byGame).reduce((a,b)=>a+b,0)});
+    }
+    const maxDay = Math.max(60, ...days.map(x=>x.total));
+    const bars = days.map(x=>`<div class="ks-bar"><div class="ks-num">${x.total ? Math.max(1, Math.round(x.total/60)) + '分' : ''}</div>
+      <div class="ks-stack" style="height:${(x.total/maxDay*100).toFixed(1)}%">${gameIds.map(g=>x.byGame[g] ? `<div style="background:${color(g)};height:${(x.byGame[g]/x.total*100).toFixed(1)}%"></div>` : '').join('')}</div>
+      <div class="ks-day">${x.label}</div></div>`).join('');
+
+    // 各遊戲
+    const gameRows = gameIds.map(g=>{
+      const ss = sessions.filter(s=>s.game === g);
+      const lv = Object.values(d.levels[g] || {});
+      return `<tr><td><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color(g)};margin-right:6px"></i>${esc(gname(g))}</td>
+        <td class="n">${fmt(sum(ss.filter(s=>s.start >= weekStart)))}</td><td class="n">${fmt(sum(ss))}</td>
+        <td class="n">${ss.length}</td><td class="n">${lv.filter(l=>l.completes > 0).length}</td></tr>`;
+    }).join('');
+
+    // 關卡明細
+    const levelSecs = gameIds.map(g=>{
+      const lv = d.levels[g]; if(!lv || !Object.keys(lv).length) return '';
+      const rows = Object.keys(lv).sort().map(k=>{
+        const L = lv[k], tries = L.hits + L.misses;
+        return `<tr><td>${esc(L.label || k)}</td><td class="n">${L.plays}</td><td class="n">${L.completes}</td>
+          <td class="n">${fmt(L.time)}</td><td class="n">${fmt(L.plays ? L.time/L.plays : 0)}</td>
+          <td class="n">${tries ? Math.round(L.hits/tries*100) + '%' : '—'}</td><td class="n">${L.last ? stamp(L.last) : ''}</td></tr>`;
+      }).join('');
+      return `<div class="ks-sec"><h3>${esc(gname(g))}：關卡紀錄</h3><div class="ks-scroll"><table class="ks-table">
+        <tr><th>關卡</th><th>玩過</th><th>完成</th><th>總時間</th><th>平均每次</th><th>正確率</th><th>最近一次</th></tr>${rows}</table></div></div>`;
+    }).join('');
+
+    const recent = sessions.slice(-15).reverse().map(s=>`<tr><td>${stamp(s.start)}</td><td>${esc(gname(s.game))}</td>
+      <td class="n">${fmt(s.active)}</td><td class="n">${fmt((s.end - s.start)/1000)}</td></tr>`).join('');
+
+    const ov = $ov();
+    ov.innerHTML = `<div class="ks-wrap">
+      <div class="ks-head"><h2>家長專區・遊玩紀錄</h2><button class="ks-btn dark" data-close>返回遊戲</button></div>
+      <div class="ks-cards">
+        <div class="ks-card"><div class="k">今天</div><div class="v">${fmt(todaySec)}</div></div>
+        <div class="ks-card"><div class="k">近 7 天</div><div class="v">${fmt(weekSec)}</div><div class="s">有玩的天數：${playDays} 天</div></div>
+        <div class="ks-card"><div class="k">平均每次</div><div class="v">${fmt(avg)}</div><div class="s">共 ${sessions.length} 次</div></div>
+        <div class="ks-card"><div class="k">累計</div><div class="v">${fmt(allSec)}</div></div>
+      </div>
+      <div class="ks-sec"><h3>近 14 天每日遊玩時間</h3><div class="ks-bars">${bars}</div>
+        <div class="ks-legend">${gameIds.map(g=>`<span><i style="background:${color(g)}"></i>${esc(gname(g))}</span>`).join('')}</div></div>
+      <div class="ks-sec"><h3>各遊戲</h3>${gameIds.length ? `<div class="ks-scroll"><table class="ks-table">
+        <tr><th>遊戲</th><th>近 7 天</th><th>累計</th><th>次數</th><th>完成關卡數</th></tr>${gameRows}</table></div>` : '<div class="ks-empty">還沒有紀錄</div>'}</div>
+      ${levelSecs}
+      <div class="ks-sec"><h3>最近 15 次遊玩</h3>${recent ? `<div class="ks-scroll"><table class="ks-table">
+        <tr><th>開始時間</th><th>遊戲</th><th>實際遊玩</th><th>畫面開著</th></tr>${recent}</table></div>` : '<div class="ks-empty">還沒有紀錄</div>'}</div>
+      <div class="ks-sec"><p class="ks-note">・「實際遊玩」只計算有在操作的時間：超過 60 秒沒碰螢幕、或切到別的 App 時不計時。「畫面開著」是從打開到最後一次操作的總長度。<br>
+        ・「正確率」以按對的音符除以「按對＋按錯＋漏掉」計算，換裝任務沒有對錯，顯示為「—」。<br>
+        ・紀錄存在這台裝置的瀏覽器裡；清除 Safari 網站資料會一併清掉。</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+          <button class="ks-btn" data-export>匯出 CSV</button><button class="ks-btn warn" data-reset>清除所有紀錄</button></div></div>
+    </div>`;
+    ov.classList.add('show');
+    let resetArmed = false;
+    ov.onclick = e=>{
+      if(e.target.closest('[data-close]')) return close();
+      if(e.target.closest('[data-export]')) return exportCSV(d, gname);
+      const r = e.target.closest('[data-reset]');
+      if(r){
+        if(!resetArmed){ resetArmed = true; r.textContent = '再按一次確認清除'; setTimeout(()=>{ resetArmed = false; r.textContent = '清除所有紀錄'; }, 3000); }
+        else { const keep = load().games; save({sessions:[], levels:{}, games:keep}); newSession(); renderDashboard(); }
+      }
+    };
+  }
+  function exportCSV(d, gname){
+    const q = v => '"' + String(v).replace(/"/g,'""') + '"';
+    const lines = ['類型,遊戲,開始或關卡,實際遊玩秒數,畫面開著秒數,玩過,完成,答對,答錯或漏掉'];
+    d.sessions.filter(s=>s.active >= 5).forEach(s=>lines.push(['遊玩', q(gname(s.game)), q(new Date(s.start).toLocaleString('zh-TW')), Math.round(s.active), Math.round((s.end-s.start)/1000), '', '', '', ''].join(',')));
+    Object.keys(d.levels).forEach(g=>Object.keys(d.levels[g]).sort().forEach(k=>{
+      const L = d.levels[g][k];
+      lines.push(['關卡', q(gname(g)), q(L.label || k), L.time, '', L.plays, L.completes, L.hits, L.misses].join(','));
+    }));
+    const blob = new Blob(['﻿' + lines.join('\n')], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = dayKey(Date.now()) + ' 遊戲紀錄.csv';
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  return {init, levelStart, levelEnd, open: openGate};
+})();
+
+</script>
+<script>
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+KidStats.init('piano', '音樂鋼琴闖關');
+
+/* ================= AUDIO ================= */
+let actx = null, master = null;
+try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(e){}
+function audio(){
+  if(!actx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    actx = new AC(); master = actx.createGain(); master.gain.value = 0.7; master.connect(actx.destination);
+  }
+  if(actx.state === 'suspended') actx.resume();
+  return actx;
+}
+const MIDI = [60,62,64,65,67,69,71,72];
+function playTone(midi, vol = 1, len = 1.2){
+  try{
+    const a = audio(), t = a.currentTime, f = 440 * Math.pow(2, (midi - 69) / 12);
+    const g = a.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.45 * vol, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.12 * vol, t + 0.25);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    g.connect(master);
+    [[1,'triangle',1],[2,'sine',0.25],[3,'sine',0.08]].forEach(([m,type,lvl])=>{
+      const o = a.createOscillator(), og = a.createGain();
+      o.type = type; o.frequency.value = f * m; og.gain.value = lvl;
+      o.connect(og); og.connect(g); o.start(t); o.stop(t + len + 0.05);
+    });
+  }catch(e){}
+}
+function playJingle(){
+  [60,64,67,72].forEach((m,i)=>setTimeout(()=>playTone(m,0.8,0.9), i*140));
+  setTimeout(()=>playTone(76,0.8,1.8), 560);
+}
+const clickSound = () => playTone(84, 0.25, 0.25);
+document.addEventListener('pointerdown', ()=>{ try{ audio(); }catch(e){} }, {once:true});
+
+/* ================= LEVELS =================
+   音名：c d e f g a b = Do Re Mi Fa Sol La Si，C = 高音 Do；數字 = 拍數
+   mode: wait = 音符會停下來等她按到才繼續；go = 音符一直往下走（沒按到也沒關係）
+   speed: go 模式每秒幾拍 */
+const SONG = {
+  buns1:'e1 d1 c2 e1 d1 c2',
+  buns:'e1 d1 c2 e1 d1 c2 c.5 c.5 c.5 c.5 d.5 d.5 d.5 d.5 e1 d1 c2',
+  lamb1:'e1 d1 c1 d1 e1 e1 e2 d1 d1 d2',
+  lamb:'e1 d1 c1 d1 e1 e1 e2 d1 d1 d2 e1 g1 g2 e1 d1 c1 d1 e1 e1 e1 e1 d1 d1 e1 d1 c4',
+  bee1:'g1 e1 e2 f1 d1 d2 c1 d1 e1 f1 g1 g1 g2',
+  bee:'g1 e1 e2 f1 d1 d2 c1 d1 e1 f1 g1 g1 g2 g1 e1 e2 f1 d1 d2 c1 e1 g1 g1 e4 d1 d1 d1 d1 d1 e1 f2 e1 e1 e1 e1 e1 f1 g2 g1 e1 e2 f1 d1 d2 c1 e1 g1 g1 c4',
+  joy1:'e1 e1 f1 g1 g1 f1 e1 d1 c1 c1 d1 e1 e1.5 d.5 d2',
+  joy:'e1 e1 f1 g1 g1 f1 e1 d1 c1 c1 d1 e1 e1.5 d.5 d2 e1 e1 f1 g1 g1 f1 e1 d1 c1 c1 d1 e1 d1.5 c.5 c2',
+  bells1:'e1 e1 e2 e1 e1 e2 e1 g1 c1.5 d.5 e4',
+  bells:'e1 e1 e2 e1 e1 e2 e1 g1 c1.5 d.5 e4 f1 f1 f1.5 f.5 f1 e1 e1 e.5 e.5 e1 d1 d1 e1 d2 g2 e1 e1 e2 e1 e1 e2 e1 g1 c1.5 d.5 e4 f1 f1 f1 f1 f1 e1 e1 e.5 e.5 g1 g1 f1 d1 c4',
+  star1:'c1 c1 g1 g1 a1 a1 g2 f1 f1 e1 e1 d1 d1 c2',
+  star:'c1 c1 g1 g1 a1 a1 g2 f1 f1 e1 e1 d1 d1 c2 g1 g1 f1 f1 e1 e1 d2 g1 g1 f1 f1 e1 e1 d2 c1 c1 g1 g1 a1 a1 g2 f1 f1 e1 e1 d1 d1 c2',
+  boat:'c1.5 c1.5 c1 d.5 e1.5 e1 d.5 e1 f.5 g3 C.5 C.5 C.5 g.5 g.5 g.5 e.5 e.5 e.5 c.5 c.5 c.5 g1 f.5 e1 d.5 c3',
+};
+const WORLDS = [
+  {name:'Do Re Mi', icon:'🌱', levels:[
+    {name:'Hello Do Re Mi', icon:'👋', notes:'c1 d1 e2 e1 d1 c2', mode:'wait'},
+    {name:'Up and Down', icon:'🪜', notes:'c1 d1 e1 d1 c1 d1 e2 e1 d1 c1 d1 e1 d1 c2', mode:'wait'},
+    {name:'Hot Cross Buns 1', icon:'🥐', notes:SONG.buns1, mode:'wait'},
+    {name:'Hot Cross Buns', icon:'🥐', notes:SONG.buns, mode:'wait'},
+    {name:'Little Lamb 1', icon:'🐑', notes:SONG.lamb1, mode:'wait'},
+    {name:'Jump Jump', icon:'🐸', notes:'c1 e1 c1 e1 d1 d1 e2 c1 e1 d1 e1 c2', mode:'wait'},
+    {name:'Hot Cross Buns', icon:'🥐', notes:SONG.buns, mode:'go', speed:1.0},
+    {name:'Little Lamb 1', icon:'🐑', notes:SONG.lamb1, mode:'go', speed:1.0},
+  ]},
+  {name:'Do to Sol', icon:'🌸', levels:[
+    {name:'Five Steps', icon:'🪜', notes:'c1 d1 e1 f1 g2 g1 f1 e1 d1 c2', mode:'wait'},
+    {name:'Mary Had a Little Lamb', icon:'🐑', notes:SONG.lamb, mode:'wait'},
+    {name:'Little Bee 1', icon:'🐝', notes:SONG.bee1, mode:'wait'},
+    {name:'Little Bee', icon:'🐝', notes:SONG.bee, mode:'wait'},
+    {name:'Song of Joy 1', icon:'🎻', notes:SONG.joy1, mode:'wait'},
+    {name:'Song of Joy', icon:'🎻', notes:SONG.joy, mode:'wait'},
+    {name:'Mary Had a Little Lamb', icon:'🐑', notes:SONG.lamb, mode:'go', speed:1.0},
+    {name:'Little Bee', icon:'🐝', notes:SONG.bee, mode:'go', speed:1.0},
+    {name:'Jingle Bells 1', icon:'🔔', notes:SONG.bells1, mode:'go', speed:1.0},
+    {name:'Song of Joy', icon:'🎻', notes:SONG.joy, mode:'go', speed:1.0},
+  ]},
+  {name:'All 8 Notes', icon:'🌈', levels:[
+    {name:'Rainbow Up', icon:'🌈', notes:'c1 d1 e1 f1 g1 a1 b1 C2', mode:'wait'},
+    {name:'Rainbow Down', icon:'🌈', notes:'C1 b1 a1 g1 f1 e1 d1 c2', mode:'wait'},
+    {name:'Twinkle Star 1', icon:'⭐', notes:SONG.star1, mode:'wait'},
+    {name:'Twinkle Twinkle Little Star', icon:'⭐', notes:SONG.star, mode:'wait'},
+    {name:'Row Your Boat', icon:'🚣', notes:SONG.boat, mode:'wait'},
+    {name:'Jingle Bells', icon:'🔔', notes:SONG.bells, mode:'wait'},
+    {name:'Twinkle Twinkle Little Star', icon:'⭐', notes:SONG.star, mode:'go', speed:1.0},
+    {name:'Row Your Boat', icon:'🚣', notes:SONG.boat, mode:'go', speed:1.0},
+    {name:'Jingle Bells', icon:'🔔', notes:SONG.bells, mode:'go', speed:1.1},
+  ]},
+  {name:'Super Star', icon:'🚀', levels:[
+    {name:'Hot Cross Buns', icon:'🥐', notes:SONG.buns, mode:'go', speed:1.4},
+    {name:'Little Bee', icon:'🐝', notes:SONG.bee, mode:'go', speed:1.4},
+    {name:'Song of Joy', icon:'🎻', notes:SONG.joy, mode:'go', speed:1.5},
+    {name:'Twinkle Twinkle Little Star', icon:'⭐', notes:SONG.star, mode:'go', speed:1.6},
+    {name:'Jingle Bells', icon:'🔔', notes:SONG.bells, mode:'go', speed:1.6},
+  ]},
+];
+const LEVELS = [];
+WORLDS.forEach((w,wi)=>w.levels.forEach(l=>{ l.world = wi; l.n = LEVELS.length + 1; l.id = 'L' + String(l.n).padStart(2,'0'); LEVELS.push(l); }));
+const MODE_ICON = l => l.mode === 'wait' ? '🐢' : (l.speed >= 1.4 ? '🚀' : '🐇');
+
+const NOTE_IDX = {c:0,d:1,e:2,f:3,g:4,a:5,b:6,C:7};
+function parseSong(str){
+  let beat = 0;
+  return str.trim().split(/\s+/).map(tok=>{
+    const n = {lane:NOTE_IDX[tok[0]], start:beat, dur:parseFloat(tok.slice(1)), hit:false, miss:false};
+    beat += n.dur; return n;
+  });
+}
+const doneMap = () => store.get('pn_done', {});
+const isUnlocked = i => i === 0 || !!doneMap()[LEVELS[i-1].id];
+
+function renderHome(){
+  $('#homeKeys').innerHTML = LANES.map(l=>`<i style="background:${l.color}"></i>`).join('');
+  const done = Object.keys(doneMap()).length;
+  $('#homeProgress').textContent = done ? `⭐ ${done} / ${LEVELS.length}` : '';
+}
+function renderMap(){
+  const done = doneMap();
+  const nextIdx = LEVELS.findIndex(l=>!done[l.id]);
+  $('#mapList').innerHTML = WORLDS.map(w=>{
+    const cnt = w.levels.filter(l=>done[l.id]).length;
+    return `<div class="world"><div class="world-head"><span class="wi">${w.icon}</span><span class="wn">${w.name}</span><span class="wp">${cnt} / ${w.levels.length}</span></div>
+      <div class="levels">${w.levels.map(l=>{
+        const i = l.n - 1, unlocked = isUnlocked(i);
+        if(!unlocked) return `<button class="lv locked" data-lv="${i}"><span class="num">🔒</span></button>`;
+        return `<button class="lv ${i===nextIdx?'next':''}" data-lv="${i}"><span class="num">${l.n}</span><span class="ic">${l.icon}${MODE_ICON(l)}</span>${done[l.id]?`<span class="stk">${done[l.id]}</span>`:''}</button>`;
+      }).join('')}</div></div>`;
+  }).join('');
+  const nx = $('#mapList .lv.next');
+  if(nx) setTimeout(()=>nx.scrollIntoView({block:'center', behavior:'smooth'}), 50);
+}
+$('#mapList').addEventListener('click', e=>{
+  const b = e.target.closest('[data-lv]'); if(!b) return;
+  const i = +b.dataset.lv;
+  if(!isUnlocked(i)){ playTone(48, 0.4, 0.3); b.classList.remove('hop'); void b.offsetWidth; b.classList.add('hop'); return; }
+  startLevel(i);
+});
+
+/* ================= GAME ================= */
+const LANES = [
+  {name:'Do', color:'#FF7A7A'},{name:'Re', color:'#FFAE5C'},{name:'Mi', color:'#FFD84D'},{name:'Fa', color:'#7BDB8A'},
+  {name:'Sol',color:'#5ED3C8'},{name:'La', color:'#62B4F7'},{name:'Si', color:'#A58BFA'},{name:'Do', color:'#F78FBF'}];
+const cv = $('#lanes'), cx = cv.getContext('2d');
+let cw = 0, ch = 0, game = null;
+
+function shade(hex, amt){
+  const c = hex.replace('#','');
+  return '#' + [0,2,4].map(i=>Math.max(0, Math.min(255, parseInt(c.substr(i,2),16) + amt)).toString(16).padStart(2,'0')).join('');
+}
+function hexA(hex, a){
+  const c = hex.replace('#','');
+  return `rgba(${parseInt(c.substr(0,2),16)},${parseInt(c.substr(2,2),16)},${parseInt(c.substr(4,2),16)},${a})`;
+}
+function rrect(x, y, w, h, r){
+  r = Math.max(0, Math.min(r, w/2, h/2));
+  cx.beginPath(); cx.moveTo(x+r, y); cx.arcTo(x+w, y, x+w, y+h, r); cx.arcTo(x+w, y+h, x, y+h, r);
+  cx.arcTo(x, y+h, x, y, r); cx.arcTo(x, y, x+w, y, r); cx.closePath();
+}
+function resizeCanvas(){
+  const r = $('#lanesWrap').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cw = r.width; ch = r.height;
+  cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr);
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if(game) draw();
+}
+window.addEventListener('resize', ()=>{ if($('#play').classList.contains('active')) resizeCanvas(); });
+
+function newGame(extra){
+  return Object.assign({notes:[], t:-3, mode:'wait', bps:1.2, nextIdx:0, running:true, lastTs:0, particles:[],
+    pressed:new Array(8).fill(0), finished:false, endBeat:0, hits:0, wrong:0, free:false, lastNote:-1, lastNoteT:0}, extra);
+}
+function startLevel(i){
+  stopGame(false);
+  const L = LEVELS[i]; audio();
+  const notes = parseSong(L.notes), last = notes[notes.length-1];
+  game = newGame({level:L, idx:i, notes, mode:L.mode, bps: L.mode === 'wait' ? 1.2 : L.speed, endBeat:last.start + last.dur});
+  $('#playTitle').textContent = `${L.n}. ${L.icon} ${L.name} ${MODE_ICON(L)}`;
+  $('#progressWrap').style.display = '';
+  $('#finish').classList.remove('show');
+  KidStats.levelStart(L.id, `${L.n}. ${L.name}（${L.mode === 'wait' ? '等待模式' : '前進模式 ×' + L.speed}）`);
+  show('play'); resizeCanvas();
+  requestAnimationFrame(frame);
+}
+function startFree(){
+  stopGame(false); audio();
+  game = newGame({free:true, t:0});
+  $('#playTitle').textContent = '🎹 Free Play';
+  $('#progressWrap').style.display = 'none';
+  $('#finish').classList.remove('show');
+  KidStats.levelStart('F00', '自由彈奏');
+  show('play'); resizeCanvas();
+  requestAnimationFrame(frame);
+}
+function stopGame(){
+  if(game && game.running){
+    game.running = false;
+    if(game.free) KidStats.levelEnd({completed:true});
+    else if(!game.finished) KidStats.levelEnd({completed:false, hits:game.hits, misses:game.wrong + game.notes.filter(n=>n.miss).length});
+  }
+}
+function advance(){
+  while(game.nextIdx < game.notes.length && (game.notes[game.nextIdx].hit || game.notes[game.nextIdx].miss)) game.nextIdx++;
+}
+function frame(ts){
+  if(!game || !game.running) return;
+  const dt = game.lastTs ? Math.min(0.05, (ts - game.lastTs)/1000) : 0; game.lastTs = ts;
+  if(!game.free){
+    const next = game.notes[game.nextIdx];
+    if(game.mode === 'wait'){
+      let nt = game.t + dt*game.bps;
+      if(next && nt >= next.start) nt = next.start;
+      game.t = nt;
+    } else {
+      game.t += dt*game.bps;
+      for(let i=game.nextIdx; i<game.notes.length; i++){
+        const n = game.notes[i];
+        if(n.start + 0.45 >= game.t) break;
+        if(!n.hit) n.miss = true;
+      }
+      advance();
+    }
+    $('#progressBar').style.width = Math.max(0, Math.min(100, game.t/game.endBeat*100)) + '%';
+  }
+  for(let i=0;i<8;i++) game.pressed[i] = Math.max(0, game.pressed[i] - dt*4);
+  updateParticles(dt);
+  draw();
+  if(!game.free && game.nextIdx >= game.notes.length && game.t > game.endBeat + 0.6 && !game.finished){ finishLevel(); return; }
+  requestAnimationFrame(frame);
+}
+function laneTap(lane){
+  playTone(MIDI[lane]);
+  if(!game || !game.running) return;
+  game.pressed[lane] = 1;
+  if(game.free){ burst(lane); game.lastNote = lane; game.lastNoteT = performance.now(); return; }
+  let ok = false;
+  if(game.mode === 'wait'){
+    const n = game.notes[game.nextIdx];
+    if(n && n.lane === lane && n.start - game.t <= 0.9){ n.hit = true; ok = true; }
+  } else {
+    for(let i=game.nextIdx; i<game.notes.length; i++){
+      const n = game.notes[i];
+      if(n.start - game.t > 0.5) break;
+      if(n.hit || n.miss) continue;
+      if(n.lane === lane){ n.hit = true; ok = true; break; }
+    }
+  }
+  if(ok){ game.hits++; burst(lane); dance(); } else if(game.t > -0.5) game.wrong++;
+  advance();
+}
+cv.addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  const r = cv.getBoundingClientRect();
+  laneTap(Math.max(0, Math.min(7, Math.floor((e.clientX - r.left) / (r.width/8)))));
+});
+function geom(){
+  const laneW = cw/8, keyH = game && game.free ? Math.max(120, ch*0.45) : Math.min(110, Math.max(70, ch*0.17));
+  return {laneW, keyH, hitY: ch - keyH - 8};
+}
+function burst(lane){
+  const {laneW, hitY} = geom(), x = laneW*lane + laneW/2, col = LANES[lane].color;
+  for(let i=0;i<12;i++) game.particles.push({x, y:hitY, vx:(Math.random()-.5)*300, vy:-Math.random()*320-80, life:0.9, max:0.9, color: i%3 ? col : '#FFD84D', star: i%2===0});
+  game.particles.push({ring:true, x, y:hitY, r:12, life:0.4, max:0.4, color:col});
+}
+function dance(){
+  const a = document.querySelectorAll('#stage span');
+  const f = a[Math.floor(Math.random()*a.length)];
+  f.classList.remove('hop'); void f.offsetWidth; f.classList.add('hop');
+}
+function updateParticles(dt){
+  for(const p of game.particles){
+    p.life -= dt;
+    if(p.ring){ p.r += dt*160; continue; }
+    p.vy += 600*dt; p.x += p.vx*dt; p.y += p.vy*dt;
+  }
+  game.particles = game.particles.filter(p=>p.life > 0);
+}
+function draw(){
+  if(!cw || !game) return;
+  const W = cw, H = ch, {laneW, keyH, hitY} = geom(), ppb = hitY/3.6;
+  const fs = Math.max(13, Math.min(24, laneW*0.28));
+  cx.clearRect(0, 0, W, H);
+  for(let i=0;i<8;i++){
+    cx.fillStyle = hexA(LANES[i].color, i%2 ? 0.14 : 0.08);
+    cx.fillRect(i*laneW, 0, laneW, hitY);
+    cx.fillStyle = 'rgba(255,255,255,.7)'; cx.fillRect(i*laneW, 0, 1.5, hitY);
+  }
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  if(!game.free){
+    cx.fillStyle = 'rgba(180,108,240,.35)'; rrect(4, hitY-4, W-8, 8, 4); cx.fill();
+    const next = game.notes[game.nextIdx];
+    for(const n of game.notes){
+      if(n.hit) continue;
+      const y = hitY - (n.start - game.t)*ppb;
+      const th = Math.max(30, Math.min(ppb*n.dur - 6, ppb*1.2));
+      if(y < -10 || y - th > H) continue;
+      const x = n.lane*laneW + 5, w = laneW - 10, col = LANES[n.lane].color;
+      cx.save();
+      if(n.miss) cx.globalAlpha = 0.25;
+      if(n === next && game.mode === 'wait'){ cx.shadowColor = col; cx.shadowBlur = 24; }
+      cx.fillStyle = col; rrect(x, y - th, w, th, 14); cx.fill();
+      cx.shadowBlur = 0;
+      cx.fillStyle = 'rgba(255,255,255,.35)'; rrect(x+5, y - th + 5, w-10, Math.min(12, th/3), 6); cx.fill();
+      cx.fillStyle = '#4a3b5c'; cx.font = `800 ${fs}px "Avenir Next",system-ui,sans-serif`;
+      cx.fillText(LANES[n.lane].name, x + w/2, y - th/2 + 1);
+      cx.restore();
+    }
+    if(game.t < -0.4){
+      cx.fillStyle = 'rgba(255,255,255,.85)'; rrect(W/2-150, hitY*0.35-40, 300, 80, 40); cx.fill();
+      cx.fillStyle = '#b46cf0'; cx.font = `900 40px "Avenir Next",system-ui,sans-serif`;
+      cx.fillText(game.t < -2 ? 'Ready?' : (game.t < -1 ? '2' : '1'), W/2, hitY*0.35);
+    }
+  } else if(game.lastNote >= 0 && performance.now() - game.lastNoteT < 900){
+    const a = 1 - (performance.now() - game.lastNoteT)/900, l = LANES[game.lastNote];
+    cx.fillStyle = hexA(l.color, a); cx.font = `900 ${Math.min(120, hitY*0.5)}px "Avenir Next",system-ui,sans-serif`;
+    cx.fillText(l.name, W/2, hitY*0.45);
+  }
+  const pulse = (Math.sin(performance.now()/180) + 1)/2;
+  const next = game.notes[game.nextIdx];
+  for(let i=0;i<8;i++){
+    const x = i*laneW + 4, y = hitY + 8, w = laneW - 8, h = keyH - 12, col = LANES[i].color;
+    cx.fillStyle = shade(col, -40); rrect(x, y + 5, w, h, 16); cx.fill();
+    const down = game.pressed[i]*4;
+    cx.fillStyle = col; rrect(x, y + down, w, h, 16); cx.fill();
+    if(game.pressed[i] > 0){ cx.fillStyle = `rgba(255,255,255,${game.pressed[i]*0.5})`; rrect(x, y + down, w, h, 16); cx.fill(); }
+    if(!game.free && game.mode === 'wait' && next && next.lane === i && next.start - game.t < 1.2){
+      cx.strokeStyle = `rgba(255,255,255,${0.5 + pulse*0.5})`; cx.lineWidth = 5; rrect(x+3, y+3+down, w-6, h-6, 14); cx.stroke();
+    }
+    cx.fillStyle = '#4a3b5c'; cx.font = `900 ${fs+2}px "Avenir Next",system-ui,sans-serif`;
+    cx.fillText(LANES[i].name, x + w/2, y + down + Math.min(h/2, h - 24));
+  }
+  for(const p of game.particles){
+    const a = Math.max(0, p.life/p.max);
+    if(p.ring){ cx.strokeStyle = hexA(p.color, a); cx.lineWidth = 6; cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, Math.PI*2); cx.stroke(); }
+    else { cx.fillStyle = hexA(p.color, a);
+      if(p.star){ cx.font = '22px sans-serif'; cx.fillText('★', p.x, p.y); }
+      else { cx.beginPath(); cx.arc(p.x, p.y, 5, 0, Math.PI*2); cx.fill(); } }
+  }
+}
+
+const STICKERS = ['🌟','🦄','🌈','🍓','🐰','🐱','🐶','🎀','🧁','🌸','🦋','🍭','🐻','🍩','🎈','🐥'];
+function finishLevel(){
+  game.finished = true; game.running = false;
+  const L = game.level, done = doneMap();
+  const st = STICKERS[Math.floor(Math.random()*STICKERS.length)];
+  const firstTime = !done[L.id];
+  done[L.id] = st; store.set('pn_done', done);
+  KidStats.levelEnd({completed:true, hits:game.hits, misses:game.wrong + game.notes.filter(n=>n.miss).length});
+  $('#finishSticker').textContent = st;
+  const nextL = LEVELS[game.idx + 1];
+  $('#finishText').textContent = !nextL ? 'You finished every level! 🏆' : (firstTime ? `Level ${nextL.n} is open!` : 'You got a sticker!');
+  $('#nextBtn').style.display = nextL ? '' : 'none';
+  $('#finish').classList.add('show');
+  playJingle(); confetti();
+}
+function confetti(){
+  const c = $('#confetti'), ctx = c.getContext('2d'), dpr = window.devicePixelRatio || 1;
+  const r = c.getBoundingClientRect(); c.width = r.width*dpr; c.height = r.height*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+  const cols = LANES.map(l=>l.color);
+  const ps = Array.from({length:140}, ()=>({x:Math.random()*r.width, y:-20 - Math.random()*r.height*0.6, vx:(Math.random()-.5)*60,
+    vy:80 + Math.random()*140, rot:Math.random()*6, vr:(Math.random()-.5)*8, s:8 + Math.random()*8, c:cols[Math.floor(Math.random()*cols.length)]}));
+  let last = 0, el = 0;
+  (function step(ts){
+    const dt = last ? Math.min(0.05, (ts-last)/1000) : 0; last = ts; el += dt;
+    ctx.clearRect(0, 0, r.width, r.height);
+    for(const p of ps){ p.x += p.vx*dt; p.y += p.vy*dt; p.rot += p.vr*dt;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c; ctx.fillRect(-p.s/2, -p.s/4, p.s, p.s/2); ctx.restore(); }
+    if(el < 5 && $('#finish').classList.contains('show')) requestAnimationFrame(step); else ctx.clearRect(0, 0, r.width, r.height);
+  })(0);
+}
+$('#restartBtn').addEventListener('click', ()=>{ clickSound(); if(!game) return; game.free ? startFree() : startLevel(game.idx); });
+$('#againBtn').addEventListener('click', ()=>{ clickSound(); if(game) startLevel(game.idx); });
+$('#nextBtn').addEventListener('click', ()=>{ clickSound(); if(game && LEVELS[game.idx+1]) startLevel(game.idx + 1); });
+$('#backBtn').addEventListener('click', ()=>{ clickSound(); go(game && game.free ? 'home' : 'map'); });
+$('#freeBtn').addEventListener('click', ()=>{ clickSound(); startFree(); });
+
+/* ================= NAV ================= */
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id === id)); document.body.classList.toggle('home', id === 'home'); }
+function go(id){
+  if(id !== 'play') stopGame();
+  if(id === 'home') renderHome();
+  if(id === 'map') renderMap();
+  show(id);
+}
+document.addEventListener('click', e=>{
+  const b = e.target.closest('[data-go]'); if(!b) return;
+  clickSound(); go(b.dataset.go);
+});
+go('home');
+</script>
+</body>
+</html>
