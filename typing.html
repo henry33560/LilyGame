@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Lily 打字樂園</title>
+<style>
+:root{
+  --bg:#fff8ef; --ink:#4a3b30; --soft:#8a7768; --card:#ffffff;
+  --sh:#7cb8f0;  --shbg:#e3f1ff;   /* 聲母 */
+  --jy:#6cc28a;  --jybg:#e2f6e8;   /* 介音 */
+  --ym:#f3a35c;  --ymbg:#fff0e0;   /* 韻母 */
+  --tn:#b48ee6;  --tnbg:#f2eaff;   /* 聲調 */
+  --en:#f28fb1;  --enbg:#ffeaf2;
+  --ok:#5cc184; --bad:#ef7a7a;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"PingFang TC","Noto Sans TC","Heiti TC","Microsoft JhengHei",system-ui,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;overflow:hidden}
+button{font-family:inherit;color:inherit;border:none;cursor:pointer;touch-action:manipulation}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;
+  padding:max(12px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+.screen.on{display:flex}
+.topbar{display:flex;align-items:center;gap:12px;min-height:60px}
+.topbar h2{margin:0;font-size:26px;flex:1;text-align:center}
+.round{width:58px;height:58px;border-radius:50%;background:#fff;font-size:28px;box-shadow:0 3px 0 #ecdccb;flex:none}
+.round:active{transform:translateY(2px);box-shadow:0 1px 0 #ecdccb}
+
+/* Home */
+#home{align-items:center;justify-content:center;gap:28px}
+#home h1{margin:0;font-size:46px;letter-spacing:2px;display:flex;align-items:center;gap:14px}
+.modes{display:flex;gap:32px;flex-wrap:wrap;justify-content:center}
+.modeCard{width:300px;height:250px;border-radius:32px;background:#fff;box-shadow:0 8px 0 #ecdccb;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.modeCard:active{transform:translateY(5px);box-shadow:0 3px 0 #ecdccb}
+.modeCard .big{font-size:64px;font-weight:800;letter-spacing:4px}
+.modeCard .lbl{font-size:26px;color:var(--soft)}
+.modeCard .prog{font-size:18px;color:var(--soft)}
+#zyCard .big{color:#4f8fd0} #enCard .big{color:#e0628f}
+#parentBtn{position:absolute;right:max(18px,env(safe-area-inset-right));top:max(16px,env(safe-area-inset-top));
+  background:#fff;border-radius:30px;padding:10px 18px;font-size:18px;color:var(--soft);box-shadow:0 3px 0 #ecdccb;overflow:hidden}
+#parentBtn .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:#ffe2c4;z-index:0}
+#parentBtn span{position:relative;z-index:1}
+#lobbyBtn{position:absolute;left:max(18px,env(safe-area-inset-left));top:max(16px,env(safe-area-inset-top));background:#fff;border-radius:30px;
+  padding:10px 18px;font-size:18px;font-weight:700;color:var(--soft);box-shadow:0 3px 0 #ecdccb;text-decoration:none}
+.hint-s{font-size:15px;color:#b9a796}
+
+/* Map */
+.mapWrap{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 4px 30px}
+.stage{margin:14px 0 6px;font-size:20px;font-weight:700;color:var(--soft);display:flex;align-items:center;gap:8px}
+.stage small{font-weight:400;font-size:15px}
+.nodes{display:flex;flex-wrap:wrap;gap:16px}
+.node{width:96px;height:96px;border-radius:26px;background:#fff;box-shadow:0 5px 0 #ecdccb;position:relative;
+  font-size:30px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.node:active{transform:translateY(3px);box-shadow:0 2px 0 #ecdccb}
+.node .stk{font-size:34px;line-height:1}
+.node .n{font-size:16px;color:var(--soft);font-weight:600}
+.node.locked{opacity:.45}
+.node.next{outline:4px solid #ffc36b;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{outline-color:#ffe2b0}}
+
+/* Play */
+#play .topbar .dots{display:flex;gap:8px;flex:1;justify-content:center}
+.dot{width:16px;height:16px;border-radius:50%;background:#eadccd}
+.dot.done{background:var(--ok)} .dot.cur{background:#ffc36b}
+.stageArea{flex:1;display:flex;align-items:center;justify-content:center;gap:22px;min-height:0;position:relative}
+.mascot{width:150px;flex:none;position:relative}
+.mascot svg{width:150px;height:auto;display:block}
+.mascot.jump{animation:jump .6s}
+@keyframes jump{30%{transform:translateY(-26px) rotate(-6deg)}60%{transform:translateY(0)}80%{transform:translateY(-8px)}}
+.bubble{position:absolute;top:-38px;left:20px;background:#fff;border-radius:16px;padding:6px 12px;font-size:20px;
+  box-shadow:0 2px 0 #ecdccb;white-space:nowrap;opacity:0;transition:opacity .2s}
+.bubble.show{opacity:1}
+.card{background:#fff;border-radius:30px;box-shadow:0 6px 0 #ecdccb;padding:16px 28px;min-width:340px;max-width:70vw;
+  display:flex;flex-direction:column;align-items:center;gap:8px}
+.pic{font-size:84px;line-height:1.05;min-height:84px;display:flex;align-items:center}
+.pic svg{width:120px;height:auto}
+.word{font-size:30px;font-weight:700;letter-spacing:4px;min-height:36px}
+.slots{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;align-items:flex-end}
+.syl{display:flex;gap:6px;align-items:flex-end}
+.combo{display:flex;gap:6px;padding:4px;border-radius:16px;background:#f4f9e9;animation:split 1.1s ease-out both}
+@keyframes split{0%{gap:0;background:#dff0c8}60%{gap:0;background:#dff0c8}100%{gap:6px;background:#f4f9e9}}
+.slot{width:62px;height:70px;border-radius:14px;border:3px dashed #e4d3c2;display:flex;align-items:center;justify-content:center;
+  font-size:42px;font-weight:700;color:#d8c8b8;background:#fffdf9}
+.slot.tone{width:46px;height:52px;font-size:34px}
+.slot.cur{border-color:#ffb547;border-style:solid;background:#fff6e6;animation:bob 1.2s infinite}
+@keyframes bob{50%{transform:translateY(-4px)}}
+.slot.filled{border-style:solid;color:var(--ink)}
+.slot.filled.c-sh{border-color:var(--sh);background:var(--shbg)}
+.slot.filled.c-jy{border-color:var(--jy);background:var(--jybg)}
+.slot.filled.c-ym{border-color:var(--ym);background:var(--ymbg)}
+.slot.filled.c-tn{border-color:var(--tn);background:var(--tnbg)}
+.slot.filled.c-en{border-color:var(--en);background:var(--enbg)}
+.slot .sp{font-size:15px;font-weight:600}
+.en .slot{width:56px;height:68px;font-size:44px}
+.bigQ{font-size:96px;font-weight:800;color:#4f8fd0;min-height:100px}
+.speak{position:absolute;right:6px;top:4px;width:70px;height:70px;font-size:34px}
+
+/* Keyboard */
+.kb{flex:none;padding:8px 0 2px;display:flex;flex-direction:column;align-items:center;gap:var(--kgap)}
+.krow{display:flex;gap:var(--kgap)}
+.key{width:var(--kw);height:var(--kh);border-radius:14px;background:#fff;box-shadow:0 4px 0 #e3d4c4;
+  font-size:calc(var(--kh)*0.5);font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.key small{position:absolute;left:7px;top:4px;font-size:12px;font-weight:500;color:#b9a796}
+.key.c-sh{background:var(--shbg)} .key.c-jy{background:var(--jybg)} .key.c-ym{background:var(--ymbg)} .key.c-tn{background:var(--tnbg)}
+.key.c-en{background:#fff}
+.key.down{transform:translateY(3px);box-shadow:0 1px 0 #e3d4c4}
+.key.good{background:#c9f1d6 !important}
+.key.wrong{animation:shake .35s;background:#ffd9d9 !important}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.key.glow{animation:glow 1s infinite}
+@keyframes glow{0%,100%{box-shadow:0 4px 0 #e3d4c4,0 0 0 0 rgba(255,190,70,.0)}50%{box-shadow:0 4px 0 #e3d4c4,0 0 0 8px rgba(255,190,70,.75)}}
+.key.space{width:calc(var(--kw)*5);font-size:22px}
+.key.blank{visibility:hidden}
+
+/* overlay */
+.ov{position:fixed;inset:0;background:rgba(74,59,48,.35);display:none;align-items:center;justify-content:center;z-index:20}
+.ov.on{display:flex}
+.ovBox{background:#fff;border-radius:34px;padding:30px 40px;text-align:center;min-width:380px;box-shadow:0 10px 0 #ecdccb}
+.ovBox .stk{font-size:110px;animation:pop .7s}
+@keyframes pop{0%{transform:scale(.2) rotate(-20deg)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+.ovBox h3{font-size:34px;margin:6px 0 18px}
+.btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.btn{background:#ffd27a;border-radius:22px;padding:14px 24px;font-size:22px;font-weight:700;box-shadow:0 4px 0 #e8b65a}
+.btn.alt{background:#f3ebe2;box-shadow:0 4px 0 #e0d2c3}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #e8b65a}
+.confetti{position:fixed;top:-20px;font-size:28px;z-index:30;pointer-events:none;animation:fall 1.8s linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(360deg)}}
+
+/* Parent */
+#parent .tabs{display:flex;gap:10px;justify-content:center;margin:6px 0 10px}
+.tab{background:#f3ebe2;border-radius:18px;padding:10px 20px;font-size:18px}
+.tab.on{background:#ffd27a;font-weight:700}
+.pBody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;-webkit-user-select:text;user-select:text;padding-bottom:30px}
+.panel{display:none;max-width:900px;margin:0 auto}
+.panel.on{display:block}
+.row{display:flex;align-items:center;gap:14px;background:#fff;border-radius:18px;padding:14px 18px;margin:10px 0;font-size:18px}
+.row label{flex:1}
+.row input[type=range]{width:220px}
+.row select{font-size:17px;padding:6px 10px;border-radius:10px}
+.toggle{width:62px;height:34px;border-radius:20px;background:#e0d2c3;position:relative;flex:none}
+.toggle::after{content:"";position:absolute;left:4px;top:4px;width:26px;height:26px;border-radius:50%;background:#fff;transition:left .15s}
+.toggle.on{background:var(--ok)} .toggle.on::after{left:32px}
+.note{font-size:15px;color:var(--soft);line-height:1.6;margin:8px 4px}
+.symGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.sym{background:#fff;border-radius:16px;padding:10px;display:flex;align-items:center;gap:8px}
+.sym .s{font-size:34px;font-weight:700;width:46px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.sym input{width:56px;font-size:18px;padding:4px;border:1px solid #e4d3c2;border-radius:8px;text-align:center}
+.sym .mute{font-size:20px;background:none;padding:4px}
+.sym.muted{opacity:.45}
+table.st{width:100%;border-collapse:collapse;background:#fff;border-radius:16px;overflow:hidden;font-size:17px;margin:10px 0}
+table.st th,table.st td{padding:10px 12px;border-bottom:1px solid #f1e6da;text-align:center}
+table.st th{background:#fbf3ea;font-weight:700}
+.kpis{display:flex;gap:12px;flex-wrap:wrap}
+.kpi{flex:1;min-width:160px;background:#fff;border-radius:18px;padding:14px 18px}
+.kpi b{display:block;font-size:30px}
+.kpi span{font-size:15px;color:var(--soft)}
+.lvGrid{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.lv{width:64px;border-radius:10px;background:#fff;padding:6px 2px;text-align:center;font-size:13px;line-height:1.35}
+.lv.d{background:#dff3e6}
+h4{margin:20px 4px 6px;font-size:19px}
+.danger{background:#ffe1e1;box-shadow:0 4px 0 #f0bcbc}
+</style>
+</head>
+<body>
+
+<!-- 首頁 -->
+<section id="home" class="screen on">
+  <a id="lobbyBtn" href="index.html">🏠 大廳</a>
+  <button id="parentBtn"><div class="fill"></div><span>家長（按住）</span></button>
+  <h1><span id="homeMascot" style="width:90px;display:inline-block"></span>Lily 打字樂園</h1>
+  <div class="modes">
+    <button class="modeCard" id="zyCard"><div class="big">ㄅㄆㄇ</div><div class="lbl">注音</div><div class="prog" id="zyProg"></div></button>
+    <button class="modeCard" id="enCard"><div class="big">abc</div><div class="lbl">English</div><div class="prog" id="enProg"></div></button>
+  </div>
+</section>
+
+<!-- 關卡地圖 -->
+<section id="map" class="screen">
+  <div class="topbar"><button class="round" data-go="home">🏠</button><h2 id="mapTitle"></h2><div style="width:58px"></div></div>
+  <div class="mapWrap" id="mapWrap"></div>
+</section>
+
+<!-- 遊戲 -->
+<section id="play" class="screen">
+  <div class="topbar">
+    <button class="round" id="backMap">⬅️</button>
+    <div class="dots" id="dots"></div>
+    <button class="round" id="speakBtn">🔊</button>
+  </div>
+  <div class="stageArea">
+    <div class="mascot" id="mascot"><div class="bubble" id="bubble"></div></div>
+    <div class="card" id="card"></div>
+  </div>
+  <div class="kb" id="kb"></div>
+</section>
+
+<!-- 家長區 -->
+<section id="parent" class="screen">
+  <div class="topbar"><button class="round" data-go="home">🏠</button><h2>家長區</h2><div style="width:58px"></div></div>
+  <div class="tabs">
+    <button class="tab on" data-tab="pStats">遊玩紀錄</button>
+    <button class="tab" data-tab="pSet">設定</button>
+    <button class="tab" data-tab="pVoice">注音試聽</button>
+  </div>
+  <div class="pBody">
+    <div class="panel on" id="pStats"></div>
+    <div class="panel" id="pSet"></div>
+    <div class="panel" id="pVoice"></div>
+  </div>
+</section>
+
+<!-- 過關 -->
+<div class="ov" id="ov"><div class="ovBox">
+  <div class="stk" id="ovStk">🐰</div>
+  <h3 id="ovTxt">好棒！</h3>
+  <div class="btns">
+    <button class="btn alt" id="ovAgain">再玩一次</button>
+    <button class="btn alt" id="ovMap">回地圖</button>
+    <button class="btn" id="ovNext">下一關 ➜</button>
+  </div>
+</div></div>
+
+<!-- 確認視窗 -->
+<div class="ov" id="cfm"><div class="ovBox">
+  <h3 id="cfmTxt" style="font-size:24px"></h3>
+  <div class="btns"><button class="btn alt" id="cfmNo">取消</button><button class="btn danger" id="cfmYes">確定</button></div>
+</div></div>
+
+<script>
+/* ============ 小工具 ============ */
+const $=s=>document.querySelector(s);
+const $$=s=>Array.from(document.querySelectorAll(s));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const store={
+  get(k,d){try{const v=localStorage.getItem('lilyType_'+k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem('lilyType_'+k,JSON.stringify(v))}catch(e){}}
+};
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+
+/* ============ 水豚吉祥物 ============ */
+const CAPY=`<svg viewBox="0 0 130 100" xmlns="http://www.w3.org/2000/svg">
+<ellipse cx="70" cy="62" rx="50" ry="30" fill="#b07a4f"/>
+<rect x="38" y="78" width="12" height="16" rx="6" fill="#8f5f3b"/><rect x="92" y="78" width="12" height="16" rx="6" fill="#8f5f3b"/>
+<ellipse cx="40" cy="46" rx="30" ry="25" fill="#bf8a5c"/>
+<rect x="8" y="38" width="38" height="28" rx="14" fill="#a8744b"/>
+<ellipse cx="54" cy="24" rx="7" ry="6" fill="#8a5a36"/>
+<circle cx="38" cy="40" r="3.6" fill="#3a2a1e"/><circle cx="39.2" cy="38.8" r="1.2" fill="#fff"/>
+<ellipse cx="14" cy="47" rx="2.4" ry="1.8" fill="#3a2a1e"/>
+<ellipse cx="46" cy="54" rx="6" ry="3.5" fill="#f5a3a3" opacity=".7"/>
+<path d="M16 58 q6 4 12 0" stroke="#3a2a1e" stroke-width="2" fill="none" stroke-linecap="round"/>
+<circle cx="64" cy="20" r="9" fill="#ffb3c7"/><circle cx="64" cy="20" r="4" fill="#ff7aa2"/>
+</svg>`;
+
+/* ============ 注音資料 ============ */
+const SHENG='ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙ', JIE='ㄧㄨㄩ', YUN='ㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ', TONES='ˊˇˋ˙';
+const ALLZY=(SHENG+JIE+YUN).split('');
+function zyCls(s){if(s==='SP'||TONES.includes(s))return'c-tn';if(SHENG.includes(s))return'c-sh';if(JIE.includes(s))return'c-jy';return'c-ym'}
+// 大千鍵盤
+const DAQIAN=[
+  [['1','ㄅ'],['2','ㄉ'],['3','ˇ'],['4','ˋ'],['5','ㄓ'],['6','ˊ'],['7','˙'],['8','ㄚ'],['9','ㄞ'],['0','ㄢ'],['-','ㄦ']],
+  [['q','ㄆ'],['w','ㄊ'],['e','ㄍ'],['r','ㄐ'],['t','ㄔ'],['y','ㄗ'],['u','ㄧ'],['i','ㄛ'],['o','ㄟ'],['p','ㄣ']],
+  [['a','ㄇ'],['s','ㄋ'],['d','ㄎ'],['f','ㄑ'],['g','ㄕ'],['h','ㄘ'],['j','ㄨ'],['k','ㄜ'],['l','ㄠ'],[';','ㄤ']],
+  [['z','ㄈ'],['x','ㄌ'],['c','ㄏ'],['v','ㄒ'],['b','ㄖ'],['n','ㄙ'],['m','ㄩ'],[',','ㄝ'],['.','ㄡ'],['/','ㄥ']]
+];
+const ZY_OFFSET=[0,.5,.75,1.25];
+const QWERTY=['qwertyuiop','asdfghjkl','zxcvbnm'];
+const EN_OFFSET=[0,.5,1.5];
+// 同音字（iPad 唸單一注音不準，改唸同音字；家長可在試聽頁修改）
+const SYM_SAY={ㄅ:'玻',ㄆ:'坡',ㄇ:'摸',ㄈ:'佛',ㄉ:'得',ㄊ:'特',ㄋ:'訥',ㄌ:'勒',ㄍ:'哥',ㄎ:'科',ㄏ:'喝',ㄐ:'基',ㄑ:'欺',ㄒ:'西',
+  ㄓ:'知',ㄔ:'吃',ㄕ:'詩',ㄖ:'日',ㄗ:'資',ㄘ:'疵',ㄙ:'思',ㄧ:'衣',ㄨ:'烏',ㄩ:'迂',ㄚ:'啊',ㄛ:'喔',ㄜ:'鵝',ㄝ:'欸',
+  ㄞ:'哀',ㄟ:'誒',ㄠ:'凹',ㄡ:'歐',ㄢ:'安',ㄣ:'恩',ㄤ:'骯',ㄥ:'鞥',ㄦ:'兒',
+  SP:'一聲','ˊ':'二聲','ˇ':'三聲','ˋ':'四聲','˙':'輕聲'};
+
+// 詞語：w=字、e=圖、z=注音（每個音節字串，一聲不標）
+const W=(w,e,...z)=>({w,e,z});
+const ZW={
+ two1:[W('貓','🐱','ㄇㄠ'),W('豬','🐷','ㄓㄨ'),W('書','📖','ㄕㄨ'),W('車','🚗','ㄔㄜ'),W('山','⛰️','ㄕㄢ')],
+ two2:[W('包','👜','ㄅㄠ'),W('杯','🥤','ㄅㄟ'),W('燈','💡','ㄉㄥ'),W('雞','🐔','ㄐㄧ'),W('叉','🍴','ㄔㄚ')],
+ two3:[W('馬','🐴','ㄇㄚˇ'),W('狗','🐶','ㄍㄡˇ'),W('兔','🐰','ㄊㄨˋ'),W('蛇','🐍','ㄕㄜˊ'),W('鼓','🥁','ㄍㄨˇ')],
+ two4:[W('門','🚪','ㄇㄣˊ'),W('傘','☂️','ㄙㄢˇ'),W('蛋','🥚','ㄉㄢˋ'),W('茶','🍵','ㄔㄚˊ'),W('樹','🌳','ㄕㄨˋ')],
+ two5:[W('手','✋','ㄕㄡˇ'),W('糖','🍬','ㄊㄤˊ'),W('筆','✏️','ㄅㄧˇ'),W('米','🍚','ㄇㄧˇ'),W('豆','🫘','ㄉㄡˋ')],
+ cmb1:[W('鴨','🦆','ㄧㄚ'),W('羊','🐑','ㄧㄤˊ'),W('葉','🍃','ㄧㄝˋ'),W('牙','🦷','ㄧㄚˊ'),W('眼','👁️','ㄧㄢˇ')],
+ cmb2:[W('蛙','🐸','ㄨㄚ'),W('碗','🥣','ㄨㄢˇ'),W('襪','🧦','ㄨㄚˋ'),W('王','👑','ㄨㄤˊ'),W('我','🙋','ㄨㄛˇ')],
+ cmb3:[W('月','🌙','ㄩㄝˋ'),W('雲','☁️','ㄩㄣˊ'),W('圓','⭕','ㄩㄢˊ'),W('泳','🏊','ㄩㄥˇ'),W('魚','🐟','ㄩˊ')],
+ cmb4:[W('家','🏠','ㄐㄧㄚ'),W('花','🌸','ㄏㄨㄚ'),W('蝦','🦐','ㄒㄧㄚ'),W('牛','🐮','ㄋㄧㄡˊ'),W('鳥','🐦','ㄋㄧㄠˇ')],
+ cmb5:[W('熊','🐻','ㄒㄩㄥˊ'),W('雪','❄️','ㄒㄩㄝˇ'),W('象','🐘','ㄒㄧㄤˋ'),W('船','⛵','ㄔㄨㄢˊ'),W('星','⭐','ㄒㄧㄥ')],
+ cmbX:[W('鞋','👟','ㄒㄧㄝˊ'),W('床','🛏️','ㄔㄨㄤˊ'),W('球','⚽','ㄑㄧㄡˊ'),W('火','🔥','ㄏㄨㄛˇ'),W('水','💧','ㄕㄨㄟˇ')],
+ wd1:[W('媽媽','👩','ㄇㄚ','ㄇㄚ˙'),W('爸爸','👨','ㄅㄚˋ','ㄅㄚ˙'),W('姊姊','👧','ㄐㄧㄝˇ','ㄐㄧㄝ˙'),W('弟弟','👦','ㄉㄧˋ','ㄉㄧ˙'),W('哥哥','🧒','ㄍㄜ','ㄍㄜ˙')],
+ wd2:[W('兔子','🐰','ㄊㄨˋ','ㄗ˙'),W('貓咪','🐱','ㄇㄠ','ㄇㄧ'),W('小狗','🐶','ㄒㄧㄠˇ','ㄍㄡˇ'),W('獅子','🦁','ㄕ','ㄗ˙'),W('猴子','🐵','ㄏㄡˊ','ㄗ˙')],
+ wd3:[W('老虎','🐯','ㄌㄠˇ','ㄏㄨˇ'),W('熊貓','🐼','ㄒㄩㄥˊ','ㄇㄠ'),W('企鵝','🐧','ㄑㄧˋ','ㄜˊ'),W('蝴蝶','🦋','ㄏㄨˊ','ㄉㄧㄝˊ'),W('水豚','CAPY','ㄕㄨㄟˇ','ㄊㄨㄣˊ')],
+ wd4:[W('蘋果','🍎','ㄆㄧㄥˊ','ㄍㄨㄛˇ'),W('香蕉','🍌','ㄒㄧㄤ','ㄐㄧㄠ'),W('西瓜','🍉','ㄒㄧ','ㄍㄨㄚ'),W('草莓','🍓','ㄘㄠˇ','ㄇㄟˊ'),W('葡萄','🍇','ㄆㄨˊ','ㄊㄠˊ')],
+ wd5:[W('公主','👸','ㄍㄨㄥ','ㄓㄨˇ'),W('皇冠','👑','ㄏㄨㄤˊ','ㄍㄨㄢ'),W('裙子','👗','ㄑㄩㄣˊ','ㄗ˙'),W('蛋糕','🎂','ㄉㄢˋ','ㄍㄠ'),W('氣球','🎈','ㄑㄧˋ','ㄑㄧㄡˊ')],
+ wd6:[W('太陽','☀️','ㄊㄞˋ','ㄧㄤˊ'),W('月亮','🌙','ㄩㄝˋ','ㄌㄧㄤˋ'),W('彩虹','🌈','ㄘㄞˇ','ㄏㄨㄥˊ'),W('鋼琴','🎹','ㄍㄤ','ㄑㄧㄣˊ'),W('冰淇淋','🍦','ㄅㄧㄥ','ㄑㄧˊ','ㄌㄧㄣˊ')]
+};
+const P=(...ks)=>ks.flatMap(k=>ZW[k]);
+// 關卡定義：t=key(找鍵)/word(拼字)；tone=要打聲調；hide=聽打（不顯示答案）；n=題數（抽題）
+const ZY_LEVELS=[
+ {s:'認鍵盤',t:'key',items:'ㄅㄆㄇㄈㄉㄊㄋㄌ'.split('')},
+ {s:'認鍵盤',t:'key',items:'ㄍㄎㄏㄐㄑㄒㄓㄔ'.split('')},
+ {s:'認鍵盤',t:'key',items:'ㄕㄖㄗㄘㄙㄧㄨㄩ'.split('')},
+ {s:'認鍵盤',t:'key',items:YUN.split(''),n:10},
+ {s:'兩拼',t:'word',items:ZW.two1},{s:'兩拼',t:'word',items:ZW.two2},{s:'兩拼',t:'word',items:ZW.two3},
+ {s:'兩拼',t:'word',items:ZW.two4},{s:'兩拼',t:'word',items:ZW.two5},
+ {s:'加聲調',t:'word',tone:1,items:ZW.two1},{s:'加聲調',t:'word',tone:1,items:ZW.two2},{s:'加聲調',t:'word',tone:1,items:ZW.two3},
+ {s:'加聲調',t:'word',tone:1,items:ZW.two4},{s:'加聲調',t:'word',tone:1,items:ZW.two5},
+ {s:'結合韻',t:'word',tone:1,items:ZW.cmb1},{s:'結合韻',t:'word',tone:1,items:ZW.cmb2},{s:'結合韻',t:'word',tone:1,items:ZW.cmb3},
+ {s:'結合韻',t:'word',tone:1,items:ZW.cmb4},{s:'結合韻',t:'word',tone:1,items:ZW.cmb5},
+ {s:'詞語',t:'word',tone:1,items:ZW.wd1},{s:'詞語',t:'word',tone:1,items:ZW.wd2},{s:'詞語',t:'word',tone:1,items:ZW.wd3},
+ {s:'詞語',t:'word',tone:1,items:ZW.wd4},{s:'詞語',t:'word',tone:1,items:ZW.wd5},{s:'詞語',t:'word',tone:1,items:ZW.wd6},
+ {s:'聽打挑戰',t:'word',tone:1,hide:1,n:6,items:P('two1','two2','two3','two4','two5')},
+ {s:'聽打挑戰',t:'word',tone:1,hide:1,n:6,items:P('cmb1','cmb2','cmb3')},
+ {s:'聽打挑戰',t:'word',tone:1,hide:1,n:6,items:P('cmb4','cmb5','cmbX')},
+ {s:'聽打挑戰',t:'word',tone:1,hide:1,n:5,items:P('wd1','wd2','wd3')},
+ {s:'聽打挑戰',t:'word',tone:1,hide:1,n:5,items:P('wd4','wd5','wd6')}
+];
+const ZY_STAGE_NOTE={'認鍵盤':'找到符號在哪裡','兩拼':'先不用打聲調','加聲調':'一聲按長長的空白鍵','結合韻':'ㄧㄚ 要分開按 ㄧ 和 ㄚ','詞語':'兩個字的詞','聽打挑戰':'聽聲音自己拼'};
+
+/* ============ 英文資料 ============ */
+const E=(w,e)=>({w,e});
+const EW={
+ c1:[E('cat','🐱'),E('dog','🐶'),E('pig','🐷'),E('hen','🐔'),E('fox','🦊')],
+ c2:[E('bus','🚌'),E('sun','☀️'),E('bed','🛏️'),E('cup','☕'),E('hat','🎩')],
+ c3:[E('bat','🦇'),E('rat','🐀'),E('map','🗺️'),E('pen','🖊️'),E('box','📦')],
+ c4:[E('bag','👜'),E('net','🥅'),E('web','🕸️'),E('log','🪵'),E('bug','🐛')],
+ c5:[E('fan','🪭'),E('van','🚐'),E('cow','🐮'),E('owl','🦉'),E('ant','🐜')],
+ c6:[E('egg','🥚'),E('ham','🍖'),E('pot','🍲'),E('nut','🥜'),E('car','🚗')],
+ c7:[E('bee','🐝'),E('leg','🦵'),E('lip','👄'),E('ram','🐏'),E('hug','🤗')],
+ c8:[E('jet','✈️'),E('toy','🧸'),E('kid','🧒'),E('gem','💎'),E('cub','🐻')],
+ f1:[E('fish','🐟'),E('frog','🐸'),E('duck','🦆'),E('bear','🐻'),E('lion','🦁')],
+ f2:[E('star','⭐'),E('moon','🌙'),E('tree','🌳'),E('cake','🎂'),E('bike','🚲')],
+ f3:[E('ball','⚽'),E('book','📖'),E('door','🚪'),E('ship','🚢'),E('bird','🐦')],
+ f4:[E('crab','🦀'),E('kite','🪁'),E('milk','🥛'),E('rose','🌹'),E('sock','🧦')],
+ s1:['the','and','is','it','in'].map(w=>E(w,'')),
+ s2:['I','you','me','my','we'].map(w=>E(w,'')),
+ s3:['see','can','go','up','to'].map(w=>E(w,'')),
+ s4:['like','look','he','she','no'].map(w=>E(w,'')),
+ b1:[E('rabbit','🐰'),E('puppy','🐶'),E('panda','🐼'),E('tiger','🐯'),E('zebra','🦓')],
+ b2:[E('mouse','🐭'),E('horse','🐴'),E('sheep','🐑'),E('monkey','🐵'),E('snake','🐍')],
+ b3:[E('apple','🍎'),E('banana','🍌'),E('grape','🍇'),E('lemon','🍋'),E('pizza','🍕')],
+ b4:[E('piano','🎹'),E('crown','👑'),E('dress','👗'),E('queen','👸'),E('capybara','CAPY')]
+};
+const EP=(...ks)=>ks.flatMap(k=>EW[k]);
+const EN_LEVELS=[
+ {s:'Letters',t:'key',items:'asdfghjkl'.split('')},
+ {s:'Letters',t:'key',items:'qwertyuiop'.split('')},
+ {s:'Letters',t:'key',items:'zxcvbnm'.split('')},
+ {s:'Letters',t:'key',n:10,items:'abcdefghijklmnopqrstuvwxyz'.split('')},
+ {s:'Listen',t:'key',hide:1,n:8,items:'abcdefghijklmnopqrstuvwxyz'.split('')},
+ {s:'Listen',t:'key',hide:1,n:8,items:'abcdefghijklmnopqrstuvwxyz'.split('')},
+ ...['c1','c2','c3','c4','c5','c6','c7','c8'].map(k=>({s:'3 letters',t:'word',items:EW[k]})),
+ ...['f1','f2','f3','f4'].map(k=>({s:'4 letters',t:'word',items:EW[k]})),
+ ...['s1','s2','s3','s4'].map(k=>({s:'Sight words',t:'word',items:EW[k]})),
+ ...['b1','b2','b3','b4'].map(k=>({s:'Big words',t:'word',items:EW[k]})),
+ {s:'Listen & type',t:'word',hide:1,n:6,items:EP('c1','c2','c3','c4')},
+ {s:'Listen & type',t:'word',hide:1,n:6,items:EP('c5','c6','c7','c8')},
+ {s:'Listen & type',t:'word',hide:1,n:6,items:EP('f1','f2','f3','f4')},
+ {s:'Listen & type',t:'word',hide:1,n:5,items:EP('b1','b2','b3','b4')}
+];
+const EN_STAGE_NOTE={'Letters':'找字母','Listen':'聽字母找鍵','3 letters':'三個字母的單字','4 letters':'四個字母的單字','Sight words':'常見字','Big words':'長單字','Listen & type':'聽聲音自己拼'};
+const LETTER_SAY={a:'ay',b:'bee',c:'see',d:'dee',e:'ee',f:'eff',g:'gee',h:'aitch',i:'eye',j:'jay',k:'kay',l:'el',m:'em',n:'en',o:'oh',p:'pee',q:'cue',r:'are',s:'ess',t:'tee',u:'you',v:'vee',w:'double you',x:'ex',y:'why',z:'zee'};
+
+const STICKERS=['🐰','🐱','🐶','🐹','🐻','🐼','🐨','🦊','🐯','🦁','🐮','🐷','🐸','🐵','🐔','🐧','🐦','🦄','🐝','🦋','🐞','🐢','🐙','🐬','🐳','🦒','🐘','🦔','🐿️','🦦'];
+
+/* ============ 設定與紀錄 ============ */
+const DEF_SET={sfx:0.7,bgm:0.25,bgmOn:true,rate:0.8,idle:5,sayKey:true,unlockAll:false,symSay:{},symMute:{}};
+let SET=Object.assign({},DEF_SET,store.get('set',{}));
+const saveSet=()=>store.set('set',SET);
+let PROG=store.get('prog',{zy:{},en:{}});   // PROG[mode][lvIdx]={done,plays,bestErr,last}
+const saveProg=()=>store.set('prog',PROG);
+let TIME=store.get('time',{});              // TIME[date]={zy:sec,en:sec}
+const saveTime=()=>store.set('time',TIME);
+
+/* ============ 聲音 ============ */
+let AC=null,master=null,bgmGain=null;
+function initAudio(){
+  if(AC){if(AC.state==='suspended')AC.resume();return}
+  try{AC=new (window.AudioContext||window.webkitAudioContext)();
+    master=AC.createGain();master.connect(AC.destination);
+    bgmGain=AC.createGain();bgmGain.connect(AC.destination);applyVol();startBgm();
+  }catch(e){}
+}
+function applyVol(){if(!AC)return;master.gain.value=SET.sfx;bgmGain.gain.value=SET.bgmOn?SET.bgm*0.35:0}
+function tone(f,t0,d,type='sine',v=.3,g=master){if(!AC)return;const o=AC.createOscillator(),a=AC.createGain();
+  o.type=type;o.frequency.value=f;a.gain.setValueAtTime(0,t0);a.gain.linearRampToValueAtTime(v,t0+.02);a.gain.exponentialRampToValueAtTime(.001,t0+d);
+  o.connect(a);a.connect(g);o.start(t0);o.stop(t0+d+.05)}
+const sfx={
+  ok(){if(!AC)return;const t=AC.currentTime;tone(880,t,.18,'triangle',.25);tone(1318,t+.07,.22,'triangle',.2)},
+  bad(){if(!AC)return;const t=AC.currentTime;tone(220,t,.18,'sine',.18)},
+  word(){if(!AC)return;const t=AC.currentTime;[784,988,1175,1568].forEach((f,i)=>tone(f,t+i*.08,.3,'triangle',.22))},
+  win(){if(!AC)return;const t=AC.currentTime;[523,659,784,1047,784,1047].forEach((f,i)=>tone(f,t+i*.12,.4,'triangle',.25))}
+};
+// 背景音樂：溫和的五聲音階小曲
+const MELODY=[523,587,659,784,659,587,523,0,659,784,880,784,659,587,659,0,523,587,659,523,440,523,587,0,659,587,523,440,392,440,523,0];
+let bgmStep=0,bgmTimer=null;
+function startBgm(){if(bgmTimer)return;bgmTimer=setInterval(()=>{if(!AC||!SET.bgmOn||document.hidden)return;
+  const f=MELODY[bgmStep%MELODY.length],t=AC.currentTime;if(f)tone(f,t,.5,'sine',.5,bgmGain);
+  if(bgmStep%4===0)tone(f?f/2:262,t,.9,'triangle',.25,bgmGain);bgmStep++},420)}
+
+// 語音
+let VOICES=[];
+function loadVoices(){try{VOICES=speechSynthesis.getVoices()}catch(e){}}
+if('speechSynthesis' in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
+function pickVoice(lang){const L=lang.toLowerCase();
+  return VOICES.find(v=>v.lang.replace('_','-').toLowerCase()===L&&/mei-jia|meijia|美佳/i.test(v.name))
+   ||VOICES.find(v=>v.lang.replace('_','-').toLowerCase()===L)
+   ||VOICES.find(v=>v.lang.toLowerCase().startsWith(L.slice(0,2)))}
+function say(text,lang){if(!text||!('speechSynthesis' in window))return;try{speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);u.lang=lang;const v=pickVoice(lang);if(v)u.voice=v;u.rate=SET.rate;u.volume=1;speechSynthesis.speak(u)}catch(e){}}
+function symText(s){if(SET.symMute[s])return'';return(SET.symSay[s]||SYM_SAY[s]||s)}
+const sayZy=s=>{const t=symText(s);if(t)say(t,'zh-TW')};
+const sayLetter=l=>say(LETTER_SAY[l.toLowerCase()]||l,'en-US');
+
+/* ============ 畫面切換 ============ */
+let cur='home',MODE='zy';
+function show(id){$$('.screen').forEach(s=>s.classList.toggle('on',s.id===id));cur=id;
+  if(id==='home')renderHome();if(id==='map')renderMap();if(id==='parent')renderParent()}
+$$('[data-go]').forEach(b=>b.onclick=()=>{initAudio();show(b.dataset.go)});
+
+/* ============ 遊玩時間 ============ */
+let tick=0;
+setInterval(()=>{if(document.hidden)return;if(cur!=='play'&&cur!=='map')return;
+  const d=today();TIME[d]=TIME[d]||{zy:0,en:0};TIME[d][MODE]++;if(++tick%10===0)saveTime()},1000);
+document.addEventListener('visibilitychange',()=>{saveTime();if(document.hidden&&'speechSynthesis' in window)speechSynthesis.cancel()});
+window.addEventListener('pagehide',saveTime);
+
+/* ============ 首頁 ============ */
+const LEVELS=m=>m==='zy'?ZY_LEVELS:EN_LEVELS;
+const doneCount=m=>Object.values(PROG[m]||{}).filter(x=>x.done).length;
+function renderHome(){$('#homeMascot').innerHTML=CAPY;
+  $('#zyProg').textContent=`⭐ ${doneCount('zy')} / ${ZY_LEVELS.length}`;
+  $('#enProg').textContent=`⭐ ${doneCount('en')} / ${EN_LEVELS.length}`}
+$('#zyCard').onclick=()=>{initAudio();MODE='zy';show('map');say('注音','zh-TW')};
+$('#enCard').onclick=()=>{initAudio();MODE='en';show('map');say('English','en-US')};
+// 家長：按住 1.5 秒
+(function(){const b=$('#parentBtn'),f=b.querySelector('.fill');let t=null,st=0,raf=0;
+  const stop=()=>{clearTimeout(t);cancelAnimationFrame(raf);f.style.width='0'};
+  const anim=()=>{f.style.width=Math.min(100,(Date.now()-st)/15)+'%';raf=requestAnimationFrame(anim)};
+  b.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();st=Date.now();anim();t=setTimeout(()=>{stop();show('parent')},1500)});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,stop));})();
+
+/* ============ 地圖 ============ */
+function unlockedUpTo(m){if(SET.unlockAll)return 999;let i=0;const L=LEVELS(m);while(i<L.length&&PROG[m][i]&&PROG[m][i].done)i++;return i}
+function renderMap(){const L=LEVELS(MODE),up=unlockedUpTo(MODE),notes=MODE==='zy'?ZY_STAGE_NOTE:EN_STAGE_NOTE;
+  $('#mapTitle').textContent=MODE==='zy'?'注音 ㄅㄆㄇ':'English abc';
+  let h='',last='';
+  L.forEach((lv,i)=>{if(lv.s!==last){if(last)h+='</div>';h+=`<div class="stage">${lv.s} <small>${notes[lv.s]||''}</small></div><div class="nodes">`;last=lv.s}
+    const p=PROG[MODE][i],locked=i>up,isNext=i===up;
+    h+=`<button class="node ${locked?'locked':''} ${isNext&&!locked?'next':''}" data-i="${i}">`+
+      (p&&p.done?`<div class="stk">${STICKERS[i%STICKERS.length]}</div><div class="n">${i+1}</div>`:(locked?`<div class="stk">🔒</div><div class="n">${i+1}</div>`:`${i+1}`))+`</button>`});
+  h+='</div>';$('#mapWrap').innerHTML=h;
+  $$('#mapWrap .node').forEach(n=>n.onclick=()=>{const i=+n.dataset.i;if(i>up){sfx.bad();return}startLevel(i)});
+  const nx=$('#mapWrap .node.next');if(nx)nx.scrollIntoView({block:'center'})}
+
+/* ============ 鍵盤 ============ */
+let KEYS={};
+function buildKeyboard(){const kb=$('#kb');KEYS={};let h='';
+  const W=innerWidth-40, H=innerHeight;
+  if(MODE==='zy'){const kw=Math.min(96,Math.floor((W-11*8)/11.6)),kh=Math.min(Math.round(kw*.9),Math.floor(H*0.085));
+    kb.style.setProperty('--kw',kw+'px');kb.style.setProperty('--kh',kh+'px');kb.style.setProperty('--kgap','8px');
+    DAQIAN.forEach((row,r)=>{h+=`<div class="krow" style="padding-left:${ZY_OFFSET[r]*(kw+8)}px;width:${11.6*(kw+8)}px">`;
+      row.forEach(([k,s])=>h+=`<button class="key ${zyCls(s)}" data-k="${s}"><small>${k}</small>${s}</button>`);h+='</div>'});
+    h+=`<div class="krow"><button class="key c-tn space" data-k="SP">一聲（空白鍵）</button></div>`;
+  }else{const kw=Math.min(100,Math.floor((W-10*9)/10.6)),kh=Math.min(Math.round(kw*.95),Math.floor(H*0.1));
+    kb.style.setProperty('--kw',kw+'px');kb.style.setProperty('--kh',kh+'px');kb.style.setProperty('--kgap','9px');
+    QWERTY.forEach((row,r)=>{h+=`<div class="krow" style="padding-left:${EN_OFFSET[r]*(kw+9)}px;width:${10.6*(kw+9)}px">`;
+      row.split('').forEach(k=>h+=`<button class="key c-en" data-k="${k}">${k}</button>`);h+='</div>'});
+  }
+  kb.innerHTML=h;
+  $$('#kb .key').forEach(b=>{KEYS[b.dataset.k]=b;
+    b.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();b.classList.add('down');press(b.dataset.k)});
+    ['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>b.classList.remove('down')))})}
+window.addEventListener('resize',()=>{if(cur==='play'){buildKeyboard();markHint()}});
+// 實體鍵盤也能玩
+const DQ_MAP={};DAQIAN.flat().forEach(([k,s])=>DQ_MAP[k]=s);
+document.addEventListener('keydown',e=>{if(cur!=='play'||e.metaKey||e.ctrlKey)return;let k=null;
+  if(MODE==='zy'){if(e.key===' ')k='SP';else k=DQ_MAP[e.key.toLowerCase()]||null}else if(/^[a-z]$/i.test(e.key))k=e.key.toLowerCase();
+  if(k){e.preventDefault();initAudio();const b=KEYS[k];if(b){b.classList.add('down');setTimeout(()=>b.classList.remove('down'),120)}press(k)}});
+
+/* ============ 遊戲流程 ============ */
+let G=null;
+function buildSeq(lv,item){
+  if(lv.t==='key')return{seq:[item]};
+  if(MODE==='en')return{seq:item.w.toLowerCase().split('')};
+  const seq=[];
+  item.z.forEach(sy=>{const chars=sy.split('');const last=chars[chars.length-1];const tn=TONES.includes(last)?last:'SP';
+    chars.filter(c=>!TONES.includes(c)).forEach(c=>seq.push(c));if(lv.tone)seq.push(tn)});
+  return{seq}}
+function startLevel(i){const lv=LEVELS(MODE)[i];let items=lv.n?shuffle(lv.items).slice(0,lv.n):(lv.t==='key'?shuffle(lv.items):lv.items.slice());
+  G={i,lv,items,idx:0,errors:0,busy:false};show('play');buildKeyboard();
+  $('#mascot').innerHTML=CAPY+'<div class="bubble" id="bubble"></div>';
+  $('#card').parentElement.classList.toggle('en',MODE==='en');nextItem()}
+function nextItem(){const it=G.items[G.idx];const{seq}=buildSeq(G.lv,it);G.seq=seq;G.pos=0;G.miss=0;G.busy=false;renderDots();renderCard();speakItem();markHint();armIdle()}
+function renderDots(){$('#dots').innerHTML=G.items.map((_,k)=>`<div class="dot ${k<G.idx?'done':k===G.idx?'cur':''}"></div>`).join('')}
+function picHTML(e,w){if(e==='CAPY')return CAPY;if(e)return e;return''}
+function renderCard(){const lv=G.lv,it=G.items[G.idx],hide=!!lv.hide;let h='';
+  if(lv.t==='key'){
+    h+=hide?`<div class="bigQ">?</div>`:`<div class="bigQ" style="color:${MODE==='zy'?'#4f8fd0':'#e0628f'}">${it}</div>`;
+    h+=`<div class="slots"><div class="slot cur" data-p="0"></div></div>`;
+  }else if(MODE==='en'){
+    h+=`<div class="pic">${picHTML(it.e)}</div>`;
+    if(!it.e&&!hide)h+=`<div class="word" style="font-size:52px">${it.w}</div>`;
+    h+='<div class="slots"><div class="syl">'+it.w.toLowerCase().split('').map((c,p)=>`<div class="slot ${p===0?'cur':''}" data-p="${p}">${hide?'':c}</div>`).join('')+'</div></div>';
+  }else{
+    h+=`<div class="pic">${picHTML(it.e)}</div><div class="word">${it.w}</div><div class="slots">`;
+    let p=0;
+    it.z.forEach(sy=>{const chars=sy.split('');const last=chars[chars.length-1];const tn=TONES.includes(last)?last:'SP';const body=chars.filter(c=>!TONES.includes(c));
+      h+='<div class="syl">';
+      for(let k=0;k<body.length;k++){const c=body[k];
+        if(JIE.includes(c)&&k+1<body.length&&YUN.includes(body[k+1])){
+          h+=`<div class="combo">${slotZ(c,p++,hide)}${slotZ(body[k+1],p++,hide)}</div>`;k++;
+        }else h+=slotZ(c,p++,hide)}
+      if(lv.tone)h+=slotZ(tn,p++,hide,true);
+      h+='</div>'});
+    h+='</div>';
+  }
+  h+=`<button class="round speak" id="cardSpeak">🔊</button>`;
+  $('#card').innerHTML=h;$('#card').style.position='relative';
+  $('#cardSpeak').onclick=()=>{initAudio();speakItem()};
+  $$('#card .slot').forEach(s=>{if(+s.dataset.p===0)s.classList.add('cur')})}
+function slotZ(c,p,hide,isTone){const txt=hide?'':(c==='SP'?'<span class="sp">一聲</span>':c);
+  return`<div class="slot ${isTone?'tone':''}" data-p="${p}">${txt}</div>`}
+function speakItem(){const it=G.items[G.idx];
+  if(G.lv.t==='key'){MODE==='zy'?sayZy(it):sayLetter(it)}
+  else say(it.w,MODE==='zy'?'zh-TW':'en-US')}
+$('#speakBtn').onclick=()=>{initAudio();speakItem()};
+
+let idleT=null;
+function armIdle(){clearTimeout(idleT);$$('#kb .key.glow').forEach(k=>k.classList.remove('glow'));
+  if(!SET.idle)return;idleT=setTimeout(()=>showHint(),SET.idle*1000)}
+function showHint(){if(!G||G.busy)return;const k=KEYS[G.seq[G.pos]];if(k)k.classList.add('glow')}
+function markHint(){} // 保留給畫面重繪後使用
+function bubble(t){const b=$('#bubble');if(!b)return;b.textContent=t;b.classList.add('show');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('show'),1300)}
+function press(k){if(!G||G.busy||cur!=='play')return;const need=G.seq[G.pos];const btn=KEYS[k];
+  if(k===need){
+    sfx.ok();if(btn){btn.classList.add('good');setTimeout(()=>btn.classList.remove('good'),250)}
+    const slot=$(`#card .slot[data-p="${G.pos}"]`);
+    if(slot){slot.classList.remove('cur');slot.classList.add('filled',MODE==='zy'?zyCls(k):'c-en');
+      slot.innerHTML=k==='SP'?'<span class="sp">一聲</span>':k}
+    if(SET.sayKey&&G.lv.t!=='key'){MODE==='zy'?sayZy(k):sayLetter(k)}
+    G.pos++;G.miss=0;
+    if(G.pos>=G.seq.length){itemDone();return}
+    const nx=$(`#card .slot[data-p="${G.pos}"]`);if(nx)nx.classList.add('cur');
+    armIdle();
+  }else{
+    sfx.bad();G.errors++;G.miss++;
+    if(btn){btn.classList.remove('wrong');void btn.offsetWidth;btn.classList.add('wrong');setTimeout(()=>btn.classList.remove('wrong'),400)}
+    if(G.miss>=2){clearTimeout(idleT);showHint()}
+  }}
+const PRAISE_ZH=['好棒！','對了！','厲害！','太好了！','讚！'],PRAISE_EN=['Great!','Yes!','Good job!','Super!','Nice!'];
+function itemDone(){G.busy=true;clearTimeout(idleT);$$('#kb .key.glow').forEach(k=>k.classList.remove('glow'));
+  sfx.word();const m=$('#mascot');m.classList.remove('jump');void m.offsetWidth;m.classList.add('jump');
+  bubble((MODE==='zy'?PRAISE_ZH:PRAISE_EN)[Math.floor(Math.random()*5)]);
+  setTimeout(()=>{if(G.lv.t!=='key')say(G.items[G.idx].w,MODE==='zy'?'zh-TW':'en-US')},250);
+  setTimeout(()=>{G.idx++;if(G.idx>=G.items.length)levelDone();else nextItem()},G.lv.t==='key'?900:1700)}
+function levelDone(){const i=G.i;const p=PROG[MODE][i]||{plays:0,bestErr:null};
+  p.done=true;p.plays++;p.bestErr=p.bestErr==null?G.errors:Math.min(p.bestErr,G.errors);p.lastErr=G.errors;p.last=today();
+  PROG[MODE][i]=p;saveProg();saveTime();renderDots();sfx.win();confetti();
+  $('#ovStk').textContent=STICKERS[i%STICKERS.length];
+  $('#ovTxt').textContent=MODE==='zy'?`第 ${i+1} 關完成！`:`Level ${i+1} done!`;
+  say(MODE==='zy'?'過關了，好棒！':'Great job!',MODE==='zy'?'zh-TW':'en-US');
+  $('#ovNext').style.display=i+1<LEVELS(MODE).length?'':'none';$('#ov').classList.add('on')}
+function confetti(){const em=['⭐','🎉','💖','✨','🌸'];for(let k=0;k<22;k++){const d=document.createElement('div');d.className='confetti';
+  d.textContent=em[k%em.length];d.style.left=Math.random()*100+'vw';d.style.animationDelay=Math.random()*.6+'s';document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}}
+$('#ovAgain').onclick=()=>{$('#ov').classList.remove('on');startLevel(G.i)};
+$('#ovMap').onclick=()=>{$('#ov').classList.remove('on');show('map')};
+$('#ovNext').onclick=()=>{$('#ov').classList.remove('on');startLevel(G.i+1)};
+$('#backMap').onclick=()=>{clearTimeout(idleT);if('speechSynthesis' in window)speechSynthesis.cancel();G=null;show('map')};
+
+/* ============ 家長區 ============ */
+$$('.tab').forEach(t=>t.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===t));$$('.panel').forEach(p=>p.classList.toggle('on',p.id===t.dataset.tab));renderParent()});
+function fmt(sec){sec=sec||0;const m=Math.floor(sec/60),s=sec%60;return m?`${m} 分 ${s} 秒`:`${s} 秒`}
+function confirmBox(txt,fn){$('#cfmTxt').textContent=txt;$('#cfm').classList.add('on');$('#cfmYes').onclick=()=>{$('#cfm').classList.remove('on');fn()};$('#cfmNo').onclick=()=>$('#cfm').classList.remove('on')}
+function renderParent(){const tab=$('.tab.on').dataset.tab;if(tab==='pStats')renderStats();if(tab==='pSet')renderSet();if(tab==='pVoice')renderVoice()}
+function renderStats(){saveTime();const d=today();const t=TIME[d]||{zy:0,en:0};
+  let tot={zy:0,en:0},days=Object.keys(TIME).sort();days.forEach(k=>{tot.zy+=TIME[k].zy||0;tot.en+=TIME[k].en||0});
+  let h=`<div class="kpis">
+   <div class="kpi"><span>今天</span><b>${fmt(t.zy+t.en)}</b><span>注音 ${fmt(t.zy)}・英文 ${fmt(t.en)}</span></div>
+   <div class="kpi"><span>累計</span><b>${fmt(tot.zy+tot.en)}</b><span>共玩了 ${days.length} 天</span></div>
+   <div class="kpi"><span>過關數</span><b>${doneCount('zy')+doneCount('en')}</b><span>注音 ${doneCount('zy')}/${ZY_LEVELS.length}・英文 ${doneCount('en')}/${EN_LEVELS.length}</span></div></div>`;
+  h+='<h4>近 14 天</h4><table class="st"><tr><th>日期</th><th>注音</th><th>英文</th><th>合計</th></tr>';
+  const rows=[];for(let k=0;k<14;k++){const x=new Date();x.setDate(x.getDate()-k);const key=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+    const v=TIME[key]||{zy:0,en:0};rows.push(`<tr><td>${key.slice(5)}</td><td>${fmt(v.zy)}</td><td>${fmt(v.en)}</td><td><b>${fmt((v.zy||0)+(v.en||0))}</b></td></tr>`)}
+  h+=rows.join('')+'</table>';
+  ['zy','en'].forEach(m=>{h+=`<h4>${m==='zy'?'注音':'英文'}各關（次數・最少錯）</h4><div class="lvGrid">`;
+    LEVELS(m).forEach((lv,i)=>{const p=PROG[m][i];h+=`<div class="lv ${p&&p.done?'d':''}"><b>${i+1}</b><br>${p?`${p.plays}次・${p.bestErr}錯`:'—'}</div>`});h+='</div>'});
+  h+=`<p class="note">只計算姊姊在關卡地圖和遊戲畫面的時間；切到別的 App 或螢幕關掉時不計時。紀錄存在這台 iPad 的瀏覽器裡，換裝置或清除瀏覽資料會不見。</p>`;
+  $('#pStats').innerHTML=h}
+function renderSet(){let h=`
+  <div class="row"><label>音效音量</label><input type="range" min="0" max="1" step="0.05" id="sSfx" value="${SET.sfx}"></div>
+  <div class="row"><label>背景音樂</label><div class="toggle ${SET.bgmOn?'on':''}" id="sBgmOn"></div><input type="range" min="0" max="1" step="0.05" id="sBgm" value="${SET.bgm}"></div>
+  <div class="row"><label>語音速度</label><select id="sRate">${[0.6,0.7,0.8,0.9,1].map(v=>`<option value="${v}" ${SET.rate==v?'selected':''}>${v===1?'正常':v===0.8?'稍慢（建議）':v+' 倍'}</option>`).join('')}</select></div>
+  <div class="row"><label>按對時唸出符號／字母</label><div class="toggle ${SET.sayKey?'on':''}" id="sSay"></div></div>
+  <div class="row"><label>停多久提示正確按鍵</label><select id="sIdle">${[[3,'3 秒'],[5,'5 秒'],[8,'8 秒'],[0,'不提示']].map(([v,t])=>`<option value="${v}" ${SET.idle==v?'selected':''}>${t}</option>`).join('')}</select></div>
+  <div class="row"><label>全部關卡解鎖（測試用）</label><div class="toggle ${SET.unlockAll?'on':''}" id="sUnlock"></div></div>
+  <p class="note">按錯兩次也會直接提示。所有關卡都不計時、不扣分。</p>
+  <div class="row"><label>清除過關進度與遊玩紀錄</label><button class="btn danger" id="sReset" style="font-size:17px;padding:10px 16px">清除</button></div>`;
+  $('#pSet').innerHTML=h;
+  $('#sSfx').oninput=e=>{SET.sfx=+e.target.value;applyVol();saveSet()};
+  $('#sSfx').onchange=()=>sfx.ok();
+  $('#sBgm').oninput=e=>{SET.bgm=+e.target.value;applyVol();saveSet()};
+  $('#sBgmOn').onclick=e=>{initAudio();SET.bgmOn=!SET.bgmOn;e.target.classList.toggle('on',SET.bgmOn);applyVol();saveSet()};
+  $('#sRate').onchange=e=>{SET.rate=+e.target.value;saveSet();say('兔子','zh-TW')};
+  $('#sSay').onclick=e=>{SET.sayKey=!SET.sayKey;e.target.classList.toggle('on',SET.sayKey);saveSet()};
+  $('#sIdle').onchange=e=>{SET.idle=+e.target.value;saveSet()};
+  $('#sUnlock').onclick=e=>{SET.unlockAll=!SET.unlockAll;e.target.classList.toggle('on',SET.unlockAll);saveSet()};
+  $('#sReset').onclick=()=>confirmBox('確定要清除所有過關進度和遊玩紀錄嗎？',()=>{PROG={zy:{},en:{}};TIME={};saveProg();saveTime();renderSet()})}
+function renderVoice(){const syms=[...ALLZY,'SP','ˊ','ˇ','ˋ','˙'];
+  let h=`<p class="note">點符號聽 iPad 怎麼唸。不準的話，在右邊改成別的同音字（例如把「得」改成「嘚」），或按 🔇 讓那個符號只顯示不唸。改完馬上生效。</p>
+  <div class="row"><label>目前使用的中文語音</label><span id="vName" style="color:var(--soft)"></span></div><div class="symGrid">`;
+  syms.forEach(s=>{const m=!!SET.symMute[s];h+=`<div class="sym ${m?'muted':''}" data-s="${s}">
+    <button class="s ${zyCls(s)}" style="background:var(--${zyCls(s).slice(2)}bg)">${s==='SP'?'<span style="font-size:15px">一聲</span>':s}</button>
+    <input value="${SET.symSay[s]||SYM_SAY[s]}" data-s="${s}"><button class="mute">${m?'🔇':'🔊'}</button></div>`});
+  h+=`</div><div class="row" style="margin-top:14px"><label>全部還原成預設</label><button class="btn alt" id="vReset" style="font-size:17px;padding:10px 16px">還原</button></div>`;
+  $('#pVoice').innerHTML=h;
+  const v=pickVoice('zh-TW');$('#vName').textContent=v?`${v.name}（${v.lang}）`:'找不到台灣中文語音，請到 iPad 設定 › 輔助使用 › 朗讀內容 › 聲音 下載';
+  $$('#pVoice .sym').forEach(el=>{const s=el.dataset.s;
+    el.querySelector('.s').onclick=()=>{initAudio();const t=el.querySelector('input').value.trim();if(t)say(t,'zh-TW')};
+    el.querySelector('input').onchange=e=>{const t=e.target.value.trim();if(t&&t!==SYM_SAY[s])SET.symSay[s]=t;else delete SET.symSay[s];saveSet()};
+    el.querySelector('.mute').onclick=()=>{SET.symMute[s]=!SET.symMute[s];if(!SET.symMute[s])delete SET.symMute[s];saveSet();renderVoice()}});
+  $('#vReset').onclick=()=>confirmBox('把所有注音的唸法還原成預設？',()=>{SET.symSay={};SET.symMute={};saveSet();renderVoice()})}
+
+renderHome();
+</script>
+</body>
+</html>
